@@ -1,0 +1,11 @@
+DROP TRIGGER IF EXISTS set_timestamp_issue_comments ON issue_comments;
+DROP TRIGGER IF EXISTS set_timestamp_issues ON issues;
+DROP TRIGGER IF EXISTS trigger_issue_sequence_id ON issues;
+DROP FUNCTION IF EXISTS set_issue_sequence_id();
+DROP TABLE IF EXISTS issue_subscribers;
+DROP TABLE IF EXISTS issue_activities;
+DROP TABLE IF EXISTS issue_comments;
+DROP TABLE IF EXISTS issue_labels;
+DROP TABLE IF EXISTS issue_assignees;
+DROP TABLE IF EXISTS issues;
+DROP TYPE IF EXISTS issue_priority;

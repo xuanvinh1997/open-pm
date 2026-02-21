@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo view:*)",
+      "WebFetch(domain:plane.so)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(go version:*)",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(psql:*)",
+      "Bash(docker --version:*)",
+      "Bash(redis-cli:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(go mod init:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx vite build:*)",
+      "Bash(docker ps:*)",
+      "Bash(make db-migrate:*)",
+      "Bash(timeout:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzE2NDUxNTQsImlhdCI6MTc3MTY0MTU1NCwiaXNzIjoib3Blbi1wbSIsInN1YiI6ImI1MmFmMWUyLWM3Y2UtNDMwYS05YzUzLTcwMzMyNjM5YjhmYyJ9.QckN4-thZWq-ZpxD-nDvl6JxZfEEsGO6TKTivd7q1os\")",
+      "WebFetch(domain:docs.plane.so)",
+      "WebFetch(domain:medium.com)"
+    ],
+    "additionalDirectories": [
+      "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",
+      "/Users/vinhpx/Workspaces/Mine/open-pm/web/src/{api,stores,router,composables,types,utils,assets/styles,components/{ui,layout,issues,workspace,project},views"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+server/tmp/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Binary
+/server/open-pm
+/server/server
+
+# Docker volumes
+postgres_data/
+redis_data/
+minio_data/
+
+# Generated
+server/internal/db/sqlc/
+
+# Test
+coverage/
+*.out
