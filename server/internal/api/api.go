@@ -131,6 +131,12 @@ func NewAPI(cfg *config.Config, queries Queries) *API {
 					r.Delete("/comments/{commentID}", a.DeleteIssueComment)
 
 					r.Get("/activities", a.ListIssueActivities)
+
+					// Work Logs
+					r.Get("/work-logs", a.ListWorkLogs)
+					r.Post("/work-logs", a.CreateWorkLog)
+					r.Put("/work-logs/{workLogID}", a.UpdateWorkLog)
+					r.Delete("/work-logs/{workLogID}", a.DeleteWorkLog)
 				})
 			})
 		})

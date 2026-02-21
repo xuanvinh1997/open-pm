@@ -119,17 +119,28 @@ func (a *API) requireProjectAccess(next http.Handler) http.Handler {
 			return
 		}
 
+		// Verify project belongs to this workspace
+		if project.WorkspaceID != getWorkspaceID(ctx) {
+			handleError(w, r, notFoundError("project not found"))
+			return
+		}
+
 		// Check project membership (or workspace admin gets access)
 		wsRole := getWorkspaceRole(ctx)
-		if wsRole < RoleAdmin {
-			_, err := a.queries.GetProjectMember(ctx, project.ID, userID)
+		if wsRole >= RoleAdmin {
+			// Workspace admins get admin-level project access
+			ctx = withProjectID(ctx, project.ID)
+			ctx = withProjectRole(ctx, RoleAdmin)
+		} else {
+			member, err := a.queries.GetProjectMember(ctx, project.ID, userID)
 			if err != nil {
 				handleError(w, r, forbiddenError("not a member of this project"))
 				return
 			}
+			ctx = withProjectID(ctx, project.ID)
+			ctx = withProjectRole(ctx, member.Role)
 		}
 
-		ctx = withProjectID(ctx, project.ID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

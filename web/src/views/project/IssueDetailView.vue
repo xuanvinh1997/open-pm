@@ -3,13 +3,16 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
-import type { Issue, IssueComment, IssuePriority } from '@/types/issue.types'
+import type { Issue, IssueComment, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest } from '@/types/issue.types'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
 import PButton from '@/components/ui/PButton.vue'
 import IssueDetailSidebar from '@/components/issues/IssueDetailSidebar.vue'
 import IssueActivityFeed from '@/components/issues/IssueActivityFeed.vue'
 import IssueCommentInput from '@/components/issues/IssueCommentInput.vue'
+import LogWorkModal from '@/components/issues/LogWorkModal.vue'
+import { useToast } from '@/composables/useToast'
+import { extractErrorMessage } from '@/utils/api-error'
 import { Briefcase, ArrowLeft } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -20,9 +23,16 @@ const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
 const issueId = route.params.issueId as string
 
+const toast = useToast()
+
 const issue = ref<Issue | null>(null)
 const comments = ref<IssueComment[]>([])
+const workLogs = ref<WorkLog[]>([])
+const totalMinutes = ref(0)
 const loading = ref(false)
+
+const showLogWorkModal = ref(false)
+const editingWorkLog = ref<WorkLog | null>(null)
 
 const breadcrumbs = computed(() => [
   { label: 'Projects', to: `/${slug}/projects`, icon: Briefcase },
@@ -34,18 +44,33 @@ onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await projectStore.fetchStates(slug, projectId)
-    await projectStore.fetchLabels(slug, projectId)
+    await Promise.all([
+      projectStore.fetchStates(slug, projectId),
+      projectStore.fetchLabels(slug, projectId),
+      projectStore.fetchMembers(slug, projectId),
+    ])
 
     const { data: issueData } = await issueApi.get(slug, projectId, issueId)
     issue.value = issueData
 
     const { data: commentData } = await issueApi.listComments(slug, projectId, issueId)
     comments.value = commentData.results
+
+    await fetchWorkLogs()
   } finally {
     loading.value = false
   }
 })
+
+async function fetchWorkLogs() {
+  try {
+    const { data } = await issueApi.listWorkLogs(slug, projectId, issueId)
+    workLogs.value = data.results
+    totalMinutes.value = data.total_minutes
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to load work logs'))
+  }
+}
 
 async function handleUpdateState(stateId: string) {
   if (!issue.value) return
@@ -53,7 +78,7 @@ async function handleUpdateState(stateId: string) {
     const { data } = await issueApi.update(slug, projectId, issueId, { state_id: stateId })
     issue.value = data
   } catch (e) {
-    console.error('Failed to update state', e)
+    toast.error(extractErrorMessage(e, 'Failed to update state'))
   }
 }
 
@@ -63,7 +88,37 @@ async function handleUpdatePriority(priority: IssuePriority) {
     const { data } = await issueApi.update(slug, projectId, issueId, { priority })
     issue.value = data
   } catch (e) {
-    console.error('Failed to update priority', e)
+    toast.error(extractErrorMessage(e, 'Failed to update priority'))
+  }
+}
+
+async function handleUpdateType(issueType: IssueType) {
+  if (!issue.value) return
+  try {
+    const { data } = await issueApi.update(slug, projectId, issueId, { issue_type: issueType })
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update type'))
+  }
+}
+
+async function handleUpdateStartDate(date: string) {
+  if (!issue.value) return
+  try {
+    const { data } = await issueApi.update(slug, projectId, issueId, { start_date: date || undefined })
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update start date'))
+  }
+}
+
+async function handleUpdateTargetDate(date: string) {
+  if (!issue.value) return
+  try {
+    const { data } = await issueApi.update(slug, projectId, issueId, { target_date: date || undefined })
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update target date'))
   }
 }
 
@@ -74,7 +129,47 @@ async function handleAddComment(html: string) {
     })
     comments.value.push(data)
   } catch (e) {
-    console.error('Failed to add comment', e)
+    toast.error(extractErrorMessage(e, 'Failed to add comment'))
+  }
+}
+
+function handleOpenLogWork() {
+  editingWorkLog.value = null
+  showLogWorkModal.value = true
+}
+
+function handleEditWorkLog(workLog: WorkLog) {
+  editingWorkLog.value = workLog
+  showLogWorkModal.value = true
+}
+
+async function handleCreateWorkLog(data: CreateWorkLogRequest) {
+  try {
+    await issueApi.createWorkLog(slug, projectId, issueId, data)
+    await fetchWorkLogs()
+    toast.success('Work logged successfully')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to log work'))
+  }
+}
+
+async function handleUpdateWorkLog(id: string, data: UpdateWorkLogRequest) {
+  try {
+    await issueApi.updateWorkLog(slug, projectId, issueId, id, data)
+    await fetchWorkLogs()
+    toast.success('Work log updated')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update work log'))
+  }
+}
+
+async function handleDeleteWorkLog(id: string) {
+  try {
+    await issueApi.deleteWorkLog(slug, projectId, issueId, id)
+    await fetchWorkLogs()
+    toast.success('Work log deleted')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to delete work log'))
   }
 }
 </script>
@@ -147,10 +242,26 @@ async function handleAddComment(html: string) {
           :issue="issue"
           :states="projectStore.states"
           :labels="projectStore.labels"
+          :work-logs="workLogs"
+          :total-minutes="totalMinutes"
           @update:state="handleUpdateState"
           @update:priority="handleUpdatePriority"
+          @update:type="handleUpdateType"
+          @update:start_date="handleUpdateStartDate"
+          @update:target_date="handleUpdateTargetDate"
+          @log-work="handleOpenLogWork"
+          @edit-work-log="handleEditWorkLog"
+          @delete-work-log="handleDeleteWorkLog"
         />
       </div>
     </div>
+
+    <!-- Log Work Modal -->
+    <LogWorkModal
+      v-model:open="showLogWorkModal"
+      :work-log="editingWorkLog"
+      @create="handleCreateWorkLog"
+      @update="handleUpdateWorkLog"
+    />
   </div>
 </template>

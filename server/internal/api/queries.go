@@ -97,6 +97,7 @@ type Queries interface {
 
 	// Issue Comments
 	CreateIssueComment(ctx context.Context, issueID, workspaceID uuid.UUID, commentHTML string, commentJSON []byte, commentStripped string, actorID *uuid.UUID) (*IssueComment, error)
+	GetIssueCommentByID(ctx context.Context, id uuid.UUID) (*IssueComment, error)
 	ListIssueComments(ctx context.Context, issueID uuid.UUID) ([]*IssueCommentWithUser, error)
 	UpdateIssueComment(ctx context.Context, id uuid.UUID, commentHTML string, commentJSON []byte, commentStripped string) (*IssueComment, error)
 	DeleteIssueComment(ctx context.Context, id uuid.UUID) error
@@ -104,6 +105,14 @@ type Queries interface {
 	// Issue Activities
 	CreateIssueActivity(ctx context.Context, params CreateActivityParams) (*IssueActivity, error)
 	ListIssueActivities(ctx context.Context, issueID uuid.UUID) ([]*IssueActivityWithUser, error)
+
+	// Work Logs
+	CreateWorkLog(ctx context.Context, issueID, projectID, workspaceID uuid.UUID, durationMinutes int, description string, loggedAt time.Time, loggedBy uuid.UUID) (*WorkLog, error)
+	GetWorkLogByID(ctx context.Context, id uuid.UUID) (*WorkLog, error)
+	ListWorkLogsByIssue(ctx context.Context, issueID uuid.UUID) ([]*WorkLogWithUser, error)
+	UpdateWorkLog(ctx context.Context, id uuid.UUID, durationMinutes *int, description *string, loggedAt *time.Time) (*WorkLog, error)
+	DeleteWorkLog(ctx context.Context, id uuid.UUID) error
+	SumWorkLogMinutesByIssue(ctx context.Context, issueID uuid.UUID) (int64, error)
 
 	// Cycles
 	CreateCycle(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Cycle, error)

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Issue } from '@/types/issue.types'
 import type { State } from '@/types/project.types'
-import { PRIORITY_CONFIG } from '@/utils/issue-helpers'
+import { PRIORITY_CONFIG, ISSUE_TYPE_CONFIG } from '@/utils/issue-helpers'
 import { formatDate } from '@/utils/helpers'
 import PAvatar from '@/components/ui/PAvatar.vue'
 import PBadge from '@/components/ui/PBadge.vue'
@@ -21,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const priorityConfig = computed(() => PRIORITY_CONFIG[props.issue.priority] || PRIORITY_CONFIG.none)
+const typeConfig = computed(() => ISSUE_TYPE_CONFIG[props.issue.issue_type] || ISSUE_TYPE_CONFIG.task)
 </script>
 
 <template>
@@ -28,6 +29,13 @@ const priorityConfig = computed(() => PRIORITY_CONFIG[props.issue.priority] || P
     class="flex items-center gap-3 border-b border-custom-border-200 px-4 py-2.5 hover:bg-custom-background-80 cursor-pointer transition-colors"
     @click="emit('click', props.issue)"
   >
+    <!-- Type icon -->
+    <component
+      :is="typeConfig.icon"
+      class="h-3.5 w-3.5 flex-shrink-0"
+      :style="{ color: typeConfig.color }"
+    />
+
     <!-- Priority icon -->
     <component
       :is="priorityConfig.icon"

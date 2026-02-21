@@ -23,6 +23,17 @@ export interface WorkspaceMember {
   created_at: string
 }
 
+export interface WorkspaceInvite {
+  id: string
+  workspace_id: string
+  email: string
+  role: number
+  accepted: boolean
+  message?: string
+  responded_at?: string
+  created_at: string
+}
+
 export interface CreateWorkspaceRequest {
   name: string
   slug: string

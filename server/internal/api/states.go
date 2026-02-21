@@ -30,6 +30,9 @@ func (a *API) ListStates(w http.ResponseWriter, r *http.Request) error {
 // CreateState handles POST .../projects/{projectID}/states
 func (a *API) CreateState(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if getProjectRole(ctx) < RoleMember {
+		return forbiddenError("guests cannot create states")
+	}
 	projectID := getProjectID(ctx)
 	workspaceID := getWorkspaceID(ctx)
 
@@ -54,6 +57,10 @@ func (a *API) CreateState(w http.ResponseWriter, r *http.Request) error {
 
 // UpdateState handles PUT .../states/{stateID}
 func (a *API) UpdateState(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	if getProjectRole(ctx) < RoleMember {
+		return forbiddenError("guests cannot update states")
+	}
 	stateID, err := uuid.FromString(chi.URLParam(r, "stateID"))
 	if err != nil {
 		return badRequestError("invalid state ID")
@@ -71,7 +78,7 @@ func (a *API) UpdateState(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("invalid request body")
 	}
 
-	state, err := a.queries.UpdateState(r.Context(), stateID, body.Name, body.Description, body.Color, body.Group, body.Sequence, body.IsDefault)
+	state, err := a.queries.UpdateState(ctx, stateID, body.Name, body.Description, body.Color, body.Group, body.Sequence, body.IsDefault)
 	if err != nil {
 		return internalServerError("failed to update state")
 	}
@@ -80,12 +87,16 @@ func (a *API) UpdateState(w http.ResponseWriter, r *http.Request) error {
 
 // DeleteState handles DELETE .../states/{stateID}
 func (a *API) DeleteState(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	if getProjectRole(ctx) < RoleAdmin {
+		return forbiddenError("only admins can delete states")
+	}
 	stateID, err := uuid.FromString(chi.URLParam(r, "stateID"))
 	if err != nil {
 		return badRequestError("invalid state ID")
 	}
 
-	if err := a.queries.DeleteState(r.Context(), stateID); err != nil {
+	if err := a.queries.DeleteState(ctx, stateID); err != nil {
 		return internalServerError("failed to delete state")
 	}
 	return sendEmpty(w, http.StatusNoContent)

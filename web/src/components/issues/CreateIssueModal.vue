@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { IssuePriority } from '@/types/issue.types'
+import type { IssuePriority, IssueType } from '@/types/issue.types'
 import type { State, Label } from '@/types/project.types'
 import PModal from '@/components/ui/PModal.vue'
 import PInput from '@/components/ui/PInput.vue'
@@ -8,6 +8,7 @@ import PTextarea from '@/components/ui/PTextarea.vue'
 import PButton from '@/components/ui/PButton.vue'
 import StateSelector from './StateSelector.vue'
 import PrioritySelector from './PrioritySelector.vue'
+import TypeSelector from './TypeSelector.vue'
 
 interface Props {
   open: boolean
@@ -20,13 +21,24 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  create: [data: { name: string; state_id?: string; priority: IssuePriority; description_html?: string }]
+  create: [data: {
+    name: string
+    state_id?: string
+    priority: IssuePriority
+    issue_type: IssueType
+    description_html?: string
+    start_date?: string
+    target_date?: string
+  }]
 }>()
 
 const name = ref('')
 const description = ref('')
 const stateId = ref(props.defaultStateId || '')
 const priority = ref<IssuePriority>('none')
+const issueType = ref<IssueType>('task')
+const startDate = ref('')
+const targetDate = ref('')
 const loading = ref(false)
 
 function handleSubmit() {
@@ -36,12 +48,18 @@ function handleSubmit() {
     name: name.value,
     state_id: stateId.value || undefined,
     priority: priority.value,
+    issue_type: issueType.value,
     description_html: description.value || undefined,
+    start_date: startDate.value || undefined,
+    target_date: targetDate.value || undefined,
   })
   // Reset
   name.value = ''
   description.value = ''
   priority.value = 'none'
+  issueType.value = 'task'
+  startDate.value = ''
+  targetDate.value = ''
   loading.value = false
 }
 </script>
@@ -59,7 +77,11 @@ function handleSubmit() {
         <PTextarea v-model="description" placeholder="Add a description..." :rows="3" />
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Type</label>
+          <TypeSelector v-model="issueType" />
+        </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-custom-text-200">State</label>
           <StateSelector v-model="stateId" :states="props.states" />
@@ -67,6 +89,25 @@ function handleSubmit() {
         <div>
           <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Priority</label>
           <PrioritySelector v-model="priority" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Start date</label>
+          <input
+            v-model="startDate"
+            type="date"
+            class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-100 focus:border-custom-primary-100 focus:outline-none focus:ring-1 focus:ring-custom-primary-100"
+          />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Due date</label>
+          <input
+            v-model="targetDate"
+            type="date"
+            class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-100 focus:border-custom-primary-100 focus:outline-none focus:ring-1 focus:ring-custom-primary-100"
+          />
         </div>
       </div>
     </form>

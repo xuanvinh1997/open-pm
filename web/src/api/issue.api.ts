@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Issue, IssueComment, CreateIssueRequest, PaginatedResponse } from '@/types/issue.types'
+import type { Issue, IssueComment, CreateIssueRequest, PaginatedResponse, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest, WorkLogListResponse } from '@/types/issue.types'
 
 const base = (slug: string, projectId: string) =>
   `/api/v1/workspaces/${slug}/projects/${projectId}`
@@ -38,6 +38,33 @@ export const issueApi = {
     return apiClient.post<IssueComment>(
       `${base(slug, projectId)}/issues/${issueId}/comments`,
       data,
+    )
+  },
+
+  // Work Logs
+  listWorkLogs(slug: string, projectId: string, issueId: string) {
+    return apiClient.get<WorkLogListResponse>(
+      `${base(slug, projectId)}/issues/${issueId}/work-logs`,
+    )
+  },
+
+  createWorkLog(slug: string, projectId: string, issueId: string, data: CreateWorkLogRequest) {
+    return apiClient.post<WorkLog>(
+      `${base(slug, projectId)}/issues/${issueId}/work-logs`,
+      data,
+    )
+  },
+
+  updateWorkLog(slug: string, projectId: string, issueId: string, workLogId: string, data: UpdateWorkLogRequest) {
+    return apiClient.put<WorkLog>(
+      `${base(slug, projectId)}/issues/${issueId}/work-logs/${workLogId}`,
+      data,
+    )
+  },
+
+  deleteWorkLog(slug: string, projectId: string, issueId: string, workLogId: string) {
+    return apiClient.delete(
+      `${base(slug, projectId)}/issues/${issueId}/work-logs/${workLogId}`,
     )
   },
 }

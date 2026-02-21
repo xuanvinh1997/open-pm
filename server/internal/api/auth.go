@@ -144,7 +144,9 @@ func (a *API) tokenByPassword(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Update last sign in
-	_ = a.queries.SetUserLastSignIn(r.Context(), user.ID)
+	if err := a.queries.SetUserLastSignIn(r.Context(), user.ID); err != nil {
+		log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("failed to update last sign in")
+	}
 
 	tokenResp, err := a.createSession(r, user.ID)
 	if err != nil {
@@ -174,13 +176,17 @@ func (a *API) tokenByRefreshToken(w http.ResponseWriter, r *http.Request) error 
 	// If already revoked, revoke the entire family (token reuse detection)
 	if token.Revoked {
 		if token.SessionID != nil {
-			_ = a.queries.RevokeRefreshTokenFamily(r.Context(), token.SessionID)
+			if err := a.queries.RevokeRefreshTokenFamily(r.Context(), token.SessionID); err != nil {
+				log.Warn().Err(err).Msg("failed to revoke refresh token family")
+			}
 		}
 		return unauthorizedError("refresh token has been revoked")
 	}
 
 	// Revoke current token
-	_ = a.queries.RevokeRefreshToken(r.Context(), req.RefreshToken)
+	if err := a.queries.RevokeRefreshToken(r.Context(), req.RefreshToken); err != nil {
+		log.Warn().Err(err).Msg("failed to revoke current refresh token")
+	}
 
 	// Issue new tokens
 	user, err := a.queries.GetUserByID(r.Context(), token.UserID)
@@ -212,7 +218,9 @@ func (a *API) tokenByRefreshToken(w http.ResponseWriter, r *http.Request) error 
 // Logout handles POST /auth/logout
 func (a *API) Logout(w http.ResponseWriter, r *http.Request) error {
 	userID := getUserID(r.Context())
-	_ = a.queries.DeleteUserSessions(r.Context(), userID)
+	if err := a.queries.DeleteUserSessions(r.Context(), userID); err != nil {
+		log.Warn().Err(err).Str("user_id", userID.String()).Msg("failed to delete user sessions")
+	}
 	return sendEmpty(w, http.StatusNoContent)
 }
 
@@ -261,7 +269,9 @@ func (a *API) Recover(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	token := generateToken()
-	_ = a.queries.SetUserRecoveryToken(r.Context(), user.ID, token)
+	if err := a.queries.SetUserRecoveryToken(r.Context(), user.ID, token); err != nil {
+		log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("failed to set recovery token")
+	}
 
 	// TODO: send recovery email via mailer
 
@@ -283,8 +293,12 @@ func (a *API) Verify(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return badRequestError("invalid or expired confirmation token")
 		}
-		_ = a.queries.SetUserEmailConfirmed(r.Context(), user.ID)
-		_ = a.queries.SetUserConfirmationToken(r.Context(), user.ID, "")
+		if err := a.queries.SetUserEmailConfirmed(r.Context(), user.ID); err != nil {
+			log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("failed to confirm user email")
+		}
+		if err := a.queries.SetUserConfirmationToken(r.Context(), user.ID, ""); err != nil {
+			log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("failed to clear confirmation token")
+		}
 
 		// Redirect to frontend
 		http.Redirect(w, r, a.config.SiteURL+"/auth/login?confirmed=true", http.StatusTemporaryRedirect)
@@ -295,7 +309,9 @@ func (a *API) Verify(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return badRequestError("invalid or expired recovery token")
 		}
-		_ = a.queries.SetUserRecoveryToken(r.Context(), user.ID, "")
+		if err := a.queries.SetUserRecoveryToken(r.Context(), user.ID, ""); err != nil {
+			log.Warn().Err(err).Str("user_id", user.ID.String()).Msg("failed to clear recovery token")
+		}
 
 		// Redirect to frontend reset password page
 		http.Redirect(w, r, a.config.SiteURL+"/auth/reset-password?token="+token, http.StatusTemporaryRedirect)

@@ -66,7 +66,9 @@ async function handleCreate(data: { name: string; identifier: string; descriptio
           class="group rounded-xl border border-custom-border-200 bg-custom-background-100 p-5 transition-all hover:shadow-custom-sm hover:border-custom-border-300"
         >
           <div class="flex items-start gap-3">
-            <span class="text-2xl">{{ project.emoji || '📁' }}</span>
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-custom-background-80 flex-shrink-0">
+              <Briefcase class="h-5 w-5 text-custom-text-300" />
+            </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold text-custom-text-100 group-hover:text-brand-600 transition-colors">
                 {{ project.name }}

@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Workspace, WorkspaceMember, CreateWorkspaceRequest } from '@/types/workspace.types'
+import type { Workspace, WorkspaceMember, WorkspaceInvite, CreateWorkspaceRequest } from '@/types/workspace.types'
 
 export const workspaceApi = {
   list() {
@@ -22,8 +22,22 @@ export const workspaceApi = {
     return apiClient.delete(`/api/v1/workspaces/${slug}`)
   },
 
+  // Members
   listMembers(slug: string) {
     return apiClient.get<{ results: WorkspaceMember[] }>(`/api/v1/workspaces/${slug}/members`)
+  },
+
+  updateMemberRole(slug: string, memberId: string, role: number) {
+    return apiClient.put(`/api/v1/workspaces/${slug}/members/${memberId}`, { role })
+  },
+
+  removeMember(slug: string, memberId: string) {
+    return apiClient.delete(`/api/v1/workspaces/${slug}/members/${memberId}`)
+  },
+
+  // Invites
+  listInvites(slug: string) {
+    return apiClient.get<{ results: WorkspaceInvite[] }>(`/api/v1/workspaces/${slug}/invites`)
   },
 
   invite(slug: string, data: { email: string; role: number; message?: string }) {

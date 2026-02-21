@@ -140,16 +140,16 @@ func (r *Repository) DeleteLabel(ctx context.Context, id uuid.UUID) error {
 func (r *Repository) CreateIssue(ctx context.Context, params api.CreateIssueParams) (*api.Issue, error) {
 	var i api.Issue
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO issues (project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped, priority, start_date, target_date, is_draft, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		`INSERT INTO issues (project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped, priority, issue_type, start_date, target_date, is_draft, created_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		 RETURNING id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		           priority, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
+		           priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
 		params.ProjectID, params.WorkspaceID, params.ParentID, params.StateID,
 		params.Name, params.DescriptionHTML, params.DescriptionJSON, params.DescriptionStripped,
-		params.Priority, params.StartDate, params.TargetDate, params.IsDraft, params.CreatedBy,
+		params.Priority, params.IssueType, params.StartDate, params.TargetDate, params.IsDraft, params.CreatedBy,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
-		&i.Priority, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
 		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
@@ -158,11 +158,11 @@ func (r *Repository) GetIssueByID(ctx context.Context, id uuid.UUID) (*api.Issue
 	var i api.Issue
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
 		 FROM issues WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
-		&i.Priority, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
 		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
@@ -170,7 +170,7 @@ func (r *Repository) GetIssueByID(ctx context.Context, id uuid.UUID) (*api.Issue
 func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*api.Issue, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
 		 FROM issues WHERE project_id = $1 AND deleted_at IS NULL
 		 ORDER BY sort_order ASC, created_at DESC
 		 LIMIT $2 OFFSET $3`, projectID, limit, offset)
@@ -184,7 +184,7 @@ func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUI
 		var i api.Issue
 		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
-			&i.Priority, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
 			&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -211,18 +211,19 @@ func (r *Repository) UpdateIssue(ctx context.Context, id uuid.UUID, params api.U
 			description_json = COALESCE($5, description_json),
 			description_stripped = COALESCE($6, description_stripped),
 			priority = COALESCE($7, priority),
-			start_date = $8, target_date = $9, parent_id = $10,
-			sort_order = COALESCE($11, sort_order), is_draft = COALESCE($12, is_draft),
-			completed_at = $13, archived_at = $14, updated_by = $15
+			issue_type = COALESCE($8, issue_type),
+			start_date = $9, target_date = $10, parent_id = $11,
+			sort_order = COALESCE($12, sort_order), is_draft = COALESCE($13, is_draft),
+			completed_at = $14, archived_at = $15, updated_by = $16
 		 WHERE id = $1 AND deleted_at IS NULL
 		 RETURNING id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		           priority, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
+		           priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
 		id, params.StateID, params.Name, params.DescriptionHTML, params.DescriptionJSON,
-		params.DescriptionStripped, params.Priority, params.StartDate, params.TargetDate,
+		params.DescriptionStripped, params.Priority, params.IssueType, params.StartDate, params.TargetDate,
 		params.ParentID, params.SortOrder, params.IsDraft, params.CompletedAt, params.ArchivedAt, params.UpdatedBy,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
-		&i.Priority, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
 		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
@@ -313,6 +314,15 @@ func (r *Repository) CreateIssueComment(ctx context.Context, issueID, workspaceI
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING id, issue_id, workspace_id, comment_html, comment_json, comment_stripped, actor_id, created_at, updated_at`,
 		issueID, workspaceID, commentHTML, commentJSON, commentStripped, actorID,
+	).Scan(&c.ID, &c.IssueID, &c.WorkspaceID, &c.CommentHTML, &c.CommentJSON, &c.CommentStripped, &c.ActorID, &c.CreatedAt, &c.UpdatedAt)
+	return &c, err
+}
+
+func (r *Repository) GetIssueCommentByID(ctx context.Context, id uuid.UUID) (*api.IssueComment, error) {
+	var c api.IssueComment
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, issue_id, workspace_id, comment_html, comment_json, comment_stripped, actor_id, created_at, updated_at
+		 FROM issue_comments WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&c.ID, &c.IssueID, &c.WorkspaceID, &c.CommentHTML, &c.CommentJSON, &c.CommentStripped, &c.ActorID, &c.CreatedAt, &c.UpdatedAt)
 	return &c, err
 }

@@ -29,6 +29,9 @@ func (a *API) ListLabels(w http.ResponseWriter, r *http.Request) error {
 // CreateLabel handles POST .../projects/{projectID}/labels
 func (a *API) CreateLabel(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if getProjectRole(ctx) < RoleMember {
+		return forbiddenError("guests cannot create labels")
+	}
 	projectID := getProjectID(ctx)
 	workspaceID := getWorkspaceID(ctx)
 
@@ -53,6 +56,10 @@ func (a *API) CreateLabel(w http.ResponseWriter, r *http.Request) error {
 
 // UpdateLabel handles PUT .../labels/{labelID}
 func (a *API) UpdateLabel(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	if getProjectRole(ctx) < RoleMember {
+		return forbiddenError("guests cannot update labels")
+	}
 	labelID, err := uuid.FromString(chi.URLParam(r, "labelID"))
 	if err != nil {
 		return badRequestError("invalid label ID")
@@ -69,7 +76,7 @@ func (a *API) UpdateLabel(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("invalid request body")
 	}
 
-	label, err := a.queries.UpdateLabel(r.Context(), labelID, body.Name, body.Description, body.Color, body.ParentID, body.SortOrder)
+	label, err := a.queries.UpdateLabel(ctx, labelID, body.Name, body.Description, body.Color, body.ParentID, body.SortOrder)
 	if err != nil {
 		return internalServerError("failed to update label")
 	}
@@ -78,12 +85,16 @@ func (a *API) UpdateLabel(w http.ResponseWriter, r *http.Request) error {
 
 // DeleteLabel handles DELETE .../labels/{labelID}
 func (a *API) DeleteLabel(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	if getProjectRole(ctx) < RoleAdmin {
+		return forbiddenError("only admins can delete labels")
+	}
 	labelID, err := uuid.FromString(chi.URLParam(r, "labelID"))
 	if err != nil {
 		return badRequestError("invalid label ID")
 	}
 
-	if err := a.queries.DeleteLabel(r.Context(), labelID); err != nil {
+	if err := a.queries.DeleteLabel(ctx, labelID); err != nil {
 		return internalServerError("failed to delete label")
 	}
 	return sendEmpty(w, http.StatusNoContent)

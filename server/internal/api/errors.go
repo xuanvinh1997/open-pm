@@ -3,6 +3,9 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type HTTPError struct {
@@ -39,5 +42,24 @@ func internalServerError(format string, args ...interface{}) *HTTPError {
 }
 
 func validationError(err error) *HTTPError {
+	if ve, ok := err.(validator.ValidationErrors); ok {
+		msgs := make([]string, 0, len(ve))
+		for _, fe := range ve {
+			field := strings.ToLower(fe.Field())
+			switch fe.Tag() {
+			case "required":
+				msgs = append(msgs, field+" is required")
+			case "email":
+				msgs = append(msgs, field+" must be a valid email address")
+			case "min":
+				msgs = append(msgs, field+" must be at least "+fe.Param()+" characters")
+			case "max":
+				msgs = append(msgs, field+" must be at most "+fe.Param()+" characters")
+			default:
+				msgs = append(msgs, field+" is invalid")
+			}
+		}
+		return &HTTPError{Code: http.StatusUnprocessableEntity, Message: strings.Join(msgs, "; ")}
+	}
 	return &HTTPError{Code: http.StatusUnprocessableEntity, Message: err.Error()}
 }

@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Project, CreateProjectRequest, State, Label } from '@/types/project.types'
+import type { Project, CreateProjectRequest, State, Label, ProjectMember } from '@/types/project.types'
 
 const base = (slug: string) => `/api/v1/workspaces/${slug}`
 
@@ -40,5 +40,22 @@ export const projectApi = {
 
   createLabel(slug: string, projectId: string, data: Partial<Label>) {
     return apiClient.post<Label>(`${base(slug)}/projects/${projectId}/labels`, data)
+  },
+
+  // Members
+  listMembers(slug: string, projectId: string) {
+    return apiClient.get<{ results: ProjectMember[] }>(`${base(slug)}/projects/${projectId}/members`)
+  },
+
+  addMember(slug: string, projectId: string, data: { user_id: string; role: number }) {
+    return apiClient.post<ProjectMember>(`${base(slug)}/projects/${projectId}/members`, data)
+  },
+
+  updateMemberRole(slug: string, projectId: string, memberId: string, role: number) {
+    return apiClient.put(`${base(slug)}/projects/${projectId}/members/${memberId}`, { role })
+  },
+
+  removeMember(slug: string, projectId: string, memberId: string) {
+    return apiClient.delete(`${base(slug)}/projects/${projectId}/members/${memberId}`)
   },
 }

@@ -36,6 +36,7 @@ onMounted(async () => {
   const slug = route.params.workspaceSlug as string
   if (slug) {
     await workspaceStore.setCurrentWorkspace(slug)
+    await workspaceStore.fetchMembers(slug)
   }
 })
 </script>

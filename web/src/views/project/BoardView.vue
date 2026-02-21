@@ -4,10 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
 import type { Issue, CreateIssueRequest } from '@/types/issue.types'
+import type { State } from '@/types/project.types'
+import { calculateSortOrder } from '@/utils/sort-order'
+import draggable from 'vuedraggable'
 import ViewHeader from '@/components/issues/ViewHeader.vue'
 import IssueBoardCard from '@/components/issues/IssueBoardCard.vue'
 import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
+import { useToast } from '@/composables/useToast'
+import { extractErrorMessage } from '@/utils/api-error'
 import { Circle } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -17,16 +22,27 @@ const projectStore = useProjectStore()
 const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
 
+const toast = useToast()
+
 const issues = ref<Issue[]>([])
 const loading = ref(false)
 const showCreateModal = ref(false)
 
-const columns = computed(() => {
-  return projectStore.states.map((state) => ({
+interface ColumnData {
+  state: State
+  issues: Issue[]
+}
+
+const columnData = ref<ColumnData[]>([])
+
+function buildColumns() {
+  columnData.value = projectStore.states.map((state) => ({
     state,
-    issues: issues.value.filter((i) => i.state_id === state.id),
+    issues: issues.value
+      .filter((i) => i.state_id === state.id)
+      .sort((a, b) => a.sort_order - b.sort_order),
   }))
-})
+}
 
 const defaultStateId = computed(() => {
   return projectStore.states.find((s) => s.is_default)?.id || ''
@@ -36,32 +52,83 @@ onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await projectStore.fetchStates(slug, projectId)
+    await Promise.all([
+      projectStore.fetchStates(slug, projectId),
+      projectStore.fetchMembers(slug, projectId),
+    ])
     const { data } = await issueApi.list(slug, projectId, 1, 200)
     issues.value = data.results
+    buildColumns()
   } finally {
     loading.value = false
   }
 })
 
-async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; description_html?: string }) {
+async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; issue_type?: string; description_html?: string; start_date?: string; target_date?: string }) {
   try {
     const req: CreateIssueRequest = {
       name: data.name,
       state_id: data.state_id,
       priority: data.priority as any,
+      issue_type: data.issue_type as any,
       description_html: data.description_html,
+      start_date: data.start_date,
+      target_date: data.target_date,
     }
     const { data: newIssue } = await issueApi.create(slug, projectId, req)
     issues.value.unshift(newIssue)
+    buildColumns()
     showCreateModal.value = false
+    toast.success('Issue created')
   } catch (e) {
-    console.error('Failed to create issue', e)
+    toast.error(extractErrorMessage(e, 'Failed to create issue'))
   }
 }
 
 function handleIssueClick(issue: Issue) {
   router.push(`/${slug}/projects/${projectId}/issues/${issue.id}`)
+}
+
+async function handleDragChange(
+  column: ColumnData,
+  event: { added?: { element: Issue; newIndex: number }; moved?: { element: Issue; newIndex: number } },
+) {
+  const added = event.added
+  const moved = event.moved
+
+  if (!added && !moved) return
+
+  const issue = (added || moved)!.element
+  const newIndex = (added || moved)!.newIndex
+  const columnIssues = column.issues
+
+  const prev = newIndex > 0 ? columnIssues[newIndex - 1].sort_order : null
+  const next = newIndex < columnIssues.length - 1 ? columnIssues[newIndex + 1].sort_order : null
+  const newSortOrder = calculateSortOrder(prev, next)
+
+  const updates: Partial<Issue> = { sort_order: newSortOrder }
+  if (added) {
+    updates.state_id = column.state.id
+  }
+
+  // Optimistic local update
+  issue.sort_order = newSortOrder
+  if (added) {
+    issue.state_id = column.state.id
+  }
+
+  // Update canonical issues array
+  const idx = issues.value.findIndex((i) => i.id === issue.id)
+  if (idx !== -1) {
+    Object.assign(issues.value[idx], updates)
+  }
+
+  try {
+    await issueApi.update(slug, projectId, issue.id, updates)
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update issue position'))
+    buildColumns()
+  }
 }
 </script>
 
@@ -77,7 +144,7 @@ function handleIssueClick(issue: Issue) {
     <!-- Board -->
     <div v-else class="flex flex-1 gap-4 overflow-x-auto p-4">
       <div
-        v-for="column in columns"
+        v-for="column in columnData"
         :key="column.state.id"
         class="w-[300px] flex-shrink-0"
       >
@@ -90,23 +157,25 @@ function handleIssueClick(issue: Issue) {
           </span>
         </div>
 
-        <!-- Cards -->
-        <div class="space-y-2 rounded-xl bg-custom-background-80 p-2 min-h-[100px]">
-          <IssueBoardCard
-            v-for="issue in column.issues"
-            :key="issue.id"
-            :issue="issue"
-            :identifier="projectStore.currentProject?.identifier || ''"
-            @click="handleIssueClick"
-          />
-
-          <div
-            v-if="column.issues.length === 0"
-            class="rounded-lg border border-dashed border-custom-border-200 p-4 text-center text-xs text-custom-text-300"
-          >
-            No issues
-          </div>
-        </div>
+        <!-- Draggable cards -->
+        <draggable
+          v-model="column.issues"
+          group="board-columns"
+          item-key="id"
+          :animation="200"
+          ghost-class="board-card-ghost"
+          drag-class="board-card-drag"
+          class="space-y-2 rounded-xl bg-custom-background-80 p-2 min-h-[100px]"
+          @change="(e: any) => handleDragChange(column, e)"
+        >
+          <template #item="{ element }">
+            <IssueBoardCard
+              :issue="element"
+              :identifier="projectStore.currentProject?.identifier || ''"
+              @click="handleIssueClick"
+            />
+          </template>
+        </draggable>
       </div>
     </div>
 

@@ -10,6 +10,8 @@ import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
 import PButton from '@/components/ui/PButton.vue'
+import { useToast } from '@/composables/useToast'
+import { extractErrorMessage } from '@/utils/api-error'
 import { LayoutList, Plus, ChevronRight, Circle } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -18,6 +20,8 @@ const projectStore = useProjectStore()
 
 const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
+
+const toast = useToast()
 
 const issues = ref<Issue[]>([])
 const totalCount = ref(0)
@@ -53,7 +57,10 @@ onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await projectStore.fetchStates(slug, projectId)
+    await Promise.all([
+      projectStore.fetchStates(slug, projectId),
+      projectStore.fetchMembers(slug, projectId),
+    ])
     const { data } = await issueApi.list(slug, projectId)
     issues.value = data.results
     totalCount.value = data.total_count
@@ -62,20 +69,24 @@ onMounted(async () => {
   }
 })
 
-async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; description_html?: string }) {
+async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; issue_type?: string; description_html?: string; start_date?: string; target_date?: string }) {
   try {
     const req: CreateIssueRequest = {
       name: data.name,
       state_id: data.state_id,
       priority: data.priority as any,
+      issue_type: data.issue_type as any,
       description_html: data.description_html,
+      start_date: data.start_date,
+      target_date: data.target_date,
     }
     const { data: newIssue } = await issueApi.create(slug, projectId, req)
     issues.value.unshift(newIssue)
     totalCount.value++
     showCreateModal.value = false
+    toast.success('Issue created')
   } catch (e) {
-    console.error('Failed to create issue', e)
+    toast.error(extractErrorMessage(e, 'Failed to create issue'))
   }
 }
 

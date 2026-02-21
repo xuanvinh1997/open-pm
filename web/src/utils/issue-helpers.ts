@@ -9,9 +9,13 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  BookOpen,
+  Bug,
+  CheckSquare,
+  Zap,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
-import type { IssuePriority } from '@/types/issue.types'
+import type { IssuePriority, IssueType } from '@/types/issue.types'
 
 interface PriorityConfig {
   icon: Component
@@ -30,6 +34,19 @@ export const PRIORITY_CONFIG: Record<IssuePriority, PriorityConfig> = {
   medium: { icon: SignalMedium, color: '#EAB308', label: 'Medium' },
   low: { icon: SignalLow, color: '#3B82F6', label: 'Low' },
   none: { icon: Minus, color: '#A3A3A3', label: 'None' },
+}
+
+interface IssueTypeConfig {
+  icon: Component
+  color: string
+  label: string
+}
+
+export const ISSUE_TYPE_CONFIG: Record<IssueType, IssueTypeConfig> = {
+  story: { icon: BookOpen, color: '#8B5CF6', label: 'Story' },
+  bug: { icon: Bug, color: '#EF4444', label: 'Bug' },
+  task: { icon: CheckSquare, color: '#3B82F6', label: 'Task' },
+  epic: { icon: Zap, color: '#F97316', label: 'Epic' },
 }
 
 export const STATE_GROUP_CONFIG: Record<string, StateGroupConfig> = {

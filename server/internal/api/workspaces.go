@@ -136,12 +136,13 @@ func (a *API) ListWorkspaceMembers(w http.ResponseWriter, r *http.Request) error
 // UpdateWorkspaceMember handles PUT /api/v1/workspaces/{workspaceSlug}/members/{memberID}
 func (a *API) UpdateWorkspaceMember(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	role := getWorkspaceRole(ctx)
-	if role < RoleAdmin {
+	callerRole := getWorkspaceRole(ctx)
+	if callerRole < RoleAdmin {
 		return forbiddenError("only admins can update member roles")
 	}
 
 	workspaceID := getWorkspaceID(ctx)
+	userID := getUserID(ctx)
 	memberID, err := uuid.FromString(chi.URLParam(r, "memberID"))
 	if err != nil {
 		return badRequestError("invalid member ID")
@@ -152,6 +153,25 @@ func (a *API) UpdateWorkspaceMember(w http.ResponseWriter, r *http.Request) erro
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return badRequestError("invalid request body")
+	}
+
+	// Validate role value
+	if !isValidRole(body.Role) || body.Role == RoleOwner {
+		return badRequestError("invalid role value")
+	}
+
+	// Cannot modify your own role
+	if memberID == userID {
+		return badRequestError("cannot modify your own role")
+	}
+
+	// Protect workspace owner from role changes
+	workspace, err := a.queries.GetWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		return internalServerError("failed to fetch workspace")
+	}
+	if memberID == workspace.OwnerID {
+		return forbiddenError("cannot modify the workspace owner's role")
 	}
 
 	member, err := a.queries.UpdateWorkspaceMemberRole(ctx, workspaceID, memberID, body.Role)
@@ -170,9 +190,24 @@ func (a *API) RemoveWorkspaceMember(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	workspaceID := getWorkspaceID(ctx)
+	userID := getUserID(ctx)
 	memberID, err := uuid.FromString(chi.URLParam(r, "memberID"))
 	if err != nil {
 		return badRequestError("invalid member ID")
+	}
+
+	// Cannot remove yourself
+	if memberID == userID {
+		return badRequestError("cannot remove yourself from the workspace")
+	}
+
+	// Cannot remove the workspace owner
+	workspace, err := a.queries.GetWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		return internalServerError("failed to fetch workspace")
+	}
+	if memberID == workspace.OwnerID {
+		return forbiddenError("cannot remove the workspace owner")
 	}
 
 	if err := a.queries.DeleteWorkspaceMember(ctx, workspaceID, memberID); err != nil {
@@ -203,6 +238,11 @@ func (a *API) CreateWorkspaceInvite(w http.ResponseWriter, r *http.Request) erro
 		return validationError(err)
 	}
 
+	// Validate and cap invite role (cannot invite as owner)
+	if !isValidRole(body.Role) || body.Role > RoleAdmin {
+		return badRequestError("invite role must be guest, member, or admin")
+	}
+
 	token := generateToken()
 	invite, err := a.queries.CreateWorkspaceInvite(ctx, workspaceID, body.Email, body.Role, token, &body.Message)
 	if err != nil {
@@ -216,6 +256,9 @@ func (a *API) CreateWorkspaceInvite(w http.ResponseWriter, r *http.Request) erro
 
 // ListWorkspaceInvites handles GET /api/v1/workspaces/{workspaceSlug}/invites
 func (a *API) ListWorkspaceInvites(w http.ResponseWriter, r *http.Request) error {
+	if getWorkspaceRole(r.Context()) < RoleAdmin {
+		return forbiddenError("only admins can view invites")
+	}
 	workspaceID := getWorkspaceID(r.Context())
 	invites, err := a.queries.ListWorkspaceInvites(r.Context(), workspaceID)
 	if err != nil {

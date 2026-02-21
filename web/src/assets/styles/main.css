@@ -75,6 +75,14 @@
   .hover-row {
     @apply transition-colors duration-100 hover:bg-custom-background-80;
   }
+
+  .board-card-ghost {
+    @apply opacity-30 border-2 border-dashed border-brand-500 rounded-lg;
+  }
+
+  .board-card-drag {
+    @apply opacity-90 shadow-custom-lg rotate-[2deg] cursor-grabbing;
+  }
 }
 
 /* Route transitions */

@@ -172,6 +172,7 @@ type Issue struct {
 	DescriptionJSON    json.RawMessage `json:"description_json,omitempty"`
 	DescriptionStripped string         `json:"description_stripped"`
 	Priority           string          `json:"priority"`
+	IssueType          string          `json:"issue_type"`
 	StartDate          *time.Time      `json:"start_date,omitempty"`
 	TargetDate         *time.Time      `json:"target_date,omitempty"`
 	SequenceID         int             `json:"sequence_id"`
@@ -195,6 +196,7 @@ type CreateIssueParams struct {
 	DescriptionJSON    json.RawMessage
 	DescriptionStripped string
 	Priority           string
+	IssueType          string
 	StartDate          *time.Time
 	TargetDate         *time.Time
 	IsDraft            bool
@@ -208,6 +210,7 @@ type UpdateIssueParams struct {
 	DescriptionJSON    json.RawMessage
 	DescriptionStripped *string
 	Priority           *string
+	IssueType          *string
 	StartDate          *time.Time
 	TargetDate         *time.Time
 	ParentID           *uuid.UUID
@@ -327,6 +330,27 @@ type Page struct {
 	ParentID           *uuid.UUID      `json:"parent_id,omitempty"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
+}
+
+type WorkLog struct {
+	ID              uuid.UUID `json:"id"`
+	IssueID         uuid.UUID `json:"issue_id"`
+	ProjectID       uuid.UUID `json:"project_id"`
+	WorkspaceID     uuid.UUID `json:"workspace_id"`
+	DurationMinutes int       `json:"duration_minutes"`
+	Description     string    `json:"description"`
+	LoggedAt        time.Time `json:"logged_at"`
+	LoggedBy        uuid.UUID `json:"logged_by"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type WorkLogWithUser struct {
+	WorkLog
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url"`
 }
 
 type Notification struct {

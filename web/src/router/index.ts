@@ -51,9 +51,19 @@ const router = createRouter({
           component: () => import('@/views/project/BoardView.vue'),
         },
         {
+          path: 'projects/:projectId/analytics',
+          name: 'analytics',
+          component: () => import('@/views/project/AnalyticsView.vue'),
+        },
+        {
           path: 'projects/:projectId/issues/:issueId',
           name: 'issue-detail',
           component: () => import('@/views/project/IssueDetailView.vue'),
+        },
+        {
+          path: 'members',
+          name: 'workspace-members',
+          component: () => import('@/views/workspace/WorkspaceMembersView.vue'),
         },
         {
           path: 'settings',
@@ -62,21 +72,40 @@ const router = createRouter({
         },
       ],
     },
-    // Root redirect
-    { path: '/', redirect: '/auth/login' },
+    // Root redirect (handled in navigation guard)
+    { path: '/', name: 'root', component: () => import('@/views/auth/LoginView.vue') },
   ],
 })
 
 // Navigation guard
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const isAuthenticated = !!localStorage.getItem('access_token')
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     return { name: 'login' }
   }
 
-  if (to.path.startsWith('/auth') && isAuthenticated) {
-    return '/'
+  // Redirect authenticated users away from auth pages and root
+  if (isAuthenticated && (to.path === '/' || to.path.startsWith('/auth'))) {
+    // Try to redirect to first workspace
+    try {
+      const { workspaceApi } = await import('@/api/workspace.api')
+      const { data } = await workspaceApi.list()
+      if (data.results && data.results.length > 0) {
+        return `/${data.results[0].slug}`
+      }
+      return { name: 'create-workspace' }
+    } catch {
+      // Token may be invalid, let them go to login
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      return { name: 'login' }
+    }
+  }
+
+  // Redirect unauthenticated users from root to login
+  if (to.path === '/' && !isAuthenticated) {
+    return { name: 'login' }
   }
 })
 

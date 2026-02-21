@@ -1,14 +1,25 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PInput from '@/components/ui/PInput.vue'
 import { Settings } from 'lucide-vue-next'
 
+const router = useRouter()
+const route = useRoute()
 const workspaceStore = useWorkspaceStore()
+
+onMounted(() => {
+  if (!workspaceStore.isAdmin) {
+    const slug = route.params.workspaceSlug as string
+    router.replace(`/${slug}`)
+  }
+})
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto">
+  <div v-if="workspaceStore.isAdmin" class="h-full overflow-y-auto">
     <!-- Header -->
     <div class="border-b border-custom-border-200 bg-custom-background-100 px-6 py-4">
       <PBreadcrumb :items="[{ label: 'Settings', icon: Settings }]" />

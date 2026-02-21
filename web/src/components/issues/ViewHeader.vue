@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { useProjectStore } from '@/stores/project.store'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PButton from '@/components/ui/PButton.vue'
-import { LayoutList, Kanban, Plus, Briefcase } from 'lucide-vue-next'
+import PTooltip from '@/components/ui/PTooltip.vue'
+import ProjectMembersModal from '@/components/project/ProjectMembersModal.vue'
+import { LayoutList, Kanban, BarChart3, Plus, Briefcase, Users } from 'lucide-vue-next'
 
 interface Props {
-  activeView: 'list' | 'board'
+  activeView: 'list' | 'board' | 'analytics'
 }
 
 const props = defineProps<Props>()
@@ -24,10 +26,12 @@ const projectStore = useProjectStore()
 const slug = computed(() => route.params.workspaceSlug as string)
 const projectId = computed(() => route.params.projectId as string)
 
+const showMembersModal = ref(false)
+
 const breadcrumbs = computed(() => [
   { label: 'Projects', to: `/${slug.value}/projects`, icon: Briefcase },
   { label: projectStore.currentProject?.name || 'Project' },
-  { label: props.activeView === 'list' ? 'Issues' : 'Board' },
+  { label: props.activeView === 'list' ? 'Issues' : props.activeView === 'board' ? 'Board' : 'Analytics' },
 ])
 </script>
 
@@ -53,7 +57,23 @@ const breadcrumbs = computed(() => [
         >
           <Kanban class="h-4 w-4" />
         </router-link>
+        <router-link
+          :to="`/${slug}/projects/${projectId}/analytics`"
+          class="rounded px-2 py-1 transition-colors"
+          :class="props.activeView === 'analytics' ? 'bg-custom-background-80 text-custom-text-100' : 'text-custom-text-300 hover:text-custom-text-200'"
+        >
+          <BarChart3 class="h-4 w-4" />
+        </router-link>
       </div>
+
+      <PTooltip content="Members" position="bottom">
+        <button
+          class="rounded-md p-2 text-custom-text-300 hover:bg-custom-background-80 hover:text-custom-text-200 transition-colors"
+          @click="showMembersModal = true"
+        >
+          <Users class="h-4 w-4" />
+        </button>
+      </PTooltip>
 
       <PButton variant="primary" size="sm" @click="emit('create')">
         <Plus class="h-4 w-4" />
@@ -61,4 +81,6 @@ const breadcrumbs = computed(() => [
       </PButton>
     </div>
   </div>
+
+  <ProjectMembersModal v-model:open="showMembersModal" />
 </template>

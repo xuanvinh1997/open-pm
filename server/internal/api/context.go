@@ -79,3 +79,19 @@ func getProjectID(ctx context.Context) uuid.UUID {
 	}
 	return uuid.Nil
 }
+
+func withProjectRole(ctx context.Context, role int16) context.Context {
+	return context.WithValue(ctx, ctxProjectRoleKey, role)
+}
+
+func getProjectRole(ctx context.Context) int16 {
+	if r, ok := ctx.Value(ctxProjectRoleKey).(int16); ok {
+		return r
+	}
+	return 0
+}
+
+// isValidRole checks if a role value is one of the defined role constants.
+func isValidRole(role int16) bool {
+	return role == RoleGuest || role == RoleMember || role == RoleAdmin || role == RoleOwner
+}

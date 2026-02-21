@@ -37,6 +37,20 @@ export interface State {
   is_default: boolean
 }
 
+export interface ProjectMember {
+  id: string
+  project_id: string
+  user_id: string
+  role: number
+  is_active: boolean
+  email?: string
+  first_name: string
+  last_name: string
+  display_name: string
+  avatar_url: string
+  created_at: string
+}
+
 export interface Label {
   id: string
   project_id?: string

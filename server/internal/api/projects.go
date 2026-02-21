@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gofrs/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type CreateProjectRequest struct {
@@ -61,7 +62,9 @@ func (a *API) CreateProject(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Add creator as project admin
-	_, _ = a.queries.CreateProjectMember(ctx, project.ID, userID, RoleAdmin)
+	if _, err := a.queries.CreateProjectMember(ctx, project.ID, userID, RoleAdmin); err != nil {
+		log.Warn().Err(err).Str("project_id", project.ID.String()).Str("user_id", userID.String()).Msg("failed to add creator as project admin")
+	}
 
 	// Create default states
 	a.createDefaultStates(ctx, project.ID, workspaceID)
@@ -82,6 +85,9 @@ func (a *API) GetProject(w http.ResponseWriter, r *http.Request) error {
 // UpdateProject handles PUT /api/v1/workspaces/{workspaceSlug}/projects/{projectID}
 func (a *API) UpdateProject(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if getProjectRole(ctx) < RoleAdmin {
+		return forbiddenError("only project admins can update project settings")
+	}
 	projectID := getProjectID(ctx)
 
 	var req UpdateProjectRequest
@@ -128,6 +134,10 @@ func (a *API) ListProjectMembers(w http.ResponseWriter, r *http.Request) error {
 // AddProjectMember handles POST .../projects/{projectID}/members
 func (a *API) AddProjectMember(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	callerRole := getProjectRole(ctx)
+	if callerRole < RoleAdmin {
+		return forbiddenError("only project admins can add members")
+	}
 	projectID := getProjectID(ctx)
 
 	var body struct {
@@ -136,6 +146,15 @@ func (a *API) AddProjectMember(w http.ResponseWriter, r *http.Request) error {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return badRequestError("invalid request body")
+	}
+
+	if !isValidRole(body.Role) {
+		return badRequestError("invalid role value")
+	}
+
+	// Cannot assign a role higher than your own
+	if body.Role > callerRole {
+		return forbiddenError("cannot assign a role higher than your own")
 	}
 
 	member, err := a.queries.CreateProjectMember(ctx, projectID, body.UserID, body.Role)
@@ -148,6 +167,10 @@ func (a *API) AddProjectMember(w http.ResponseWriter, r *http.Request) error {
 // UpdateProjectMember handles PUT .../projects/{projectID}/members/{memberID}
 func (a *API) UpdateProjectMember(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	callerRole := getProjectRole(ctx)
+	if callerRole < RoleAdmin {
+		return forbiddenError("only project admins can update member roles")
+	}
 	projectID := getProjectID(ctx)
 	memberID, err := uuid.FromString(chi.URLParam(r, "memberID"))
 	if err != nil {
@@ -161,6 +184,15 @@ func (a *API) UpdateProjectMember(w http.ResponseWriter, r *http.Request) error 
 		return badRequestError("invalid request body")
 	}
 
+	if !isValidRole(body.Role) {
+		return badRequestError("invalid role value")
+	}
+
+	// Cannot assign a role higher than your own
+	if body.Role > callerRole {
+		return forbiddenError("cannot assign a role higher than your own")
+	}
+
 	member, err := a.queries.UpdateProjectMemberRole(ctx, projectID, memberID, body.Role)
 	if err != nil {
 		return internalServerError("failed to update member role")
@@ -171,10 +203,18 @@ func (a *API) UpdateProjectMember(w http.ResponseWriter, r *http.Request) error 
 // RemoveProjectMember handles DELETE .../projects/{projectID}/members/{memberID}
 func (a *API) RemoveProjectMember(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
+	if getProjectRole(ctx) < RoleAdmin {
+		return forbiddenError("only project admins can remove members")
+	}
 	projectID := getProjectID(ctx)
 	memberID, err := uuid.FromString(chi.URLParam(r, "memberID"))
 	if err != nil {
 		return badRequestError("invalid member ID")
+	}
+
+	// Prevent removing yourself
+	if memberID == getUserID(ctx) {
+		return badRequestError("cannot remove yourself from a project")
 	}
 
 	if err := a.queries.DeleteProjectMember(ctx, projectID, memberID); err != nil {
@@ -202,6 +242,8 @@ func (a *API) createDefaultStates(ctx context.Context, projectID, workspaceID uu
 	}
 
 	for _, s := range defaults {
-		_, _ = a.queries.CreateState(ctx, projectID, workspaceID, s.Name, "", s.Color, s.Group, s.Sequence, s.Default)
+		if _, err := a.queries.CreateState(ctx, projectID, workspaceID, s.Name, "", s.Color, s.Group, s.Sequence, s.Default); err != nil {
+			log.Warn().Err(err).Str("project_id", projectID.String()).Str("state", s.Name).Msg("failed to create default state")
+		}
 	}
 }

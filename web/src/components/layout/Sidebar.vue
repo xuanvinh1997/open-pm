@@ -22,9 +22,11 @@ import {
   ChevronsRight,
   LayoutList,
   Kanban,
+  BarChart3,
   Search,
   Sun,
   Moon,
+  Users,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -39,11 +41,17 @@ const { open: openCommandPalette } = useCommandPalette()
 const slug = computed(() => route.params.workspaceSlug as string)
 const expandedProjects = ref<Set<string>>(new Set())
 
-const navItems = computed(() => [
-  { name: 'Home', icon: Home, to: `/${slug.value}` },
-  { name: 'Projects', icon: Briefcase, to: `/${slug.value}/projects` },
-  { name: 'Settings', icon: Settings, to: `/${slug.value}/settings` },
-])
+const navItems = computed(() => {
+  const items = [
+    { name: 'Home', icon: Home, to: `/${slug.value}` },
+    { name: 'Projects', icon: Briefcase, to: `/${slug.value}/projects` },
+  ]
+  if (workspaceStore.isAdmin) {
+    items.push({ name: 'Members', icon: Users, to: `/${slug.value}/members` })
+    items.push({ name: 'Settings', icon: Settings, to: `/${slug.value}/settings` })
+  }
+  return items
+})
 
 function toggleProject(projectId: string) {
   if (expandedProjects.value.has(projectId)) {
@@ -179,7 +187,7 @@ const userName = computed(() => {
               class="h-3 w-3 flex-shrink-0 text-custom-text-300 transition-transform duration-100"
               :class="{ 'rotate-90': expandedProjects.has(project.id) }"
             />
-            <span class="text-base leading-none">{{ project.emoji || '📁' }}</span>
+            <Briefcase class="h-4 w-4 flex-shrink-0 text-custom-text-300" />
             <span class="flex-1 truncate text-left">{{ project.name }}</span>
             <span class="text-2xs text-custom-text-300 font-mono">{{ project.identifier }}</span>
           </button>
@@ -200,6 +208,14 @@ const userName = computed(() => {
             >
               <Kanban class="h-3.5 w-3.5" />
               Board
+            </router-link>
+            <router-link
+              :to="`/${slug}/projects/${project.id}/analytics`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path === `/${slug}/projects/${project.id}/analytics` }"
+            >
+              <BarChart3 class="h-3.5 w-3.5" />
+              Analytics
             </router-link>
           </div>
         </div>

@@ -1,23 +1,70 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted, toRef } from 'vue'
 import { useRoute } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useAuthStore } from '@/stores/auth.store'
+import { issueApi } from '@/api/issue.api'
+import { projectApi } from '@/api/project.api'
+import { useAnalytics } from '@/composables/useAnalytics'
+import { useTheme } from '@/composables/useTheme'
+import type { Issue } from '@/types/issue.types'
+import type { State } from '@/types/project.types'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
 import PButton from '@/components/ui/PButton.vue'
-import { Home, FolderKanban, Users, LayoutDashboard, Plus } from 'lucide-vue-next'
+import DoughnutChart from '@/components/ui/charts/DoughnutChart.vue'
+import BarChart from '@/components/ui/charts/BarChart.vue'
+import { useToast } from '@/composables/useToast'
+import { extractErrorMessage } from '@/utils/api-error'
+import { Home, FolderKanban, Users, LayoutDashboard, Plus, Briefcase } from 'lucide-vue-next'
 
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
 const projectStore = useProjectStore()
 const authStore = useAuthStore()
+const { theme } = useTheme()
+
+const toast = useToast()
 
 const slug = route.params.workspaceSlug as string
 
+const allIssues = ref<Issue[]>([])
+const allStates = ref<State[]>([])
+const chartsLoading = ref(false)
+
+const { issuesByStateGroup, issuesByPriority, stats } =
+  useAnalytics({ issues: allIssues, states: allStates })
+
 onMounted(async () => {
-  await projectStore.fetchProjects(slug)
+  try {
+    await projectStore.fetchProjects(slug)
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to load projects'))
+    return
+  }
+
+  if (projectStore.projects.length > 0) {
+    chartsLoading.value = true
+    try {
+      const projectsToFetch = projectStore.projects.slice(0, 5)
+      const results = await Promise.all(
+        projectsToFetch.map(async (p) => {
+          const [issueRes, stateRes] = await Promise.all([
+            issueApi.list(slug, p.id, 1, 200),
+            projectApi.listStates(slug, p.id),
+          ])
+          return { issues: issueRes.data.results, states: stateRes.data.results }
+        }),
+      )
+      allIssues.value = results.flatMap((r) => r.issues)
+      allStates.value = results.flatMap((r) => r.states)
+    } catch (e) {
+      toast.error(extractErrorMessage(e, 'Failed to load dashboard data'))
+    } finally {
+      chartsLoading.value = false
+    }
+  }
 })
 </script>
 
@@ -58,7 +105,7 @@ onMounted(async () => {
               <LayoutDashboard class="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-custom-text-100">0</p>
+              <p class="text-2xl font-bold text-custom-text-100">{{ stats.active }}</p>
               <p class="text-sm text-custom-text-300">Active issues</p>
             </div>
           </div>
@@ -74,6 +121,22 @@ onMounted(async () => {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Charts -->
+      <div v-if="allIssues.length > 0" class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2" :key="theme">
+        <DoughnutChart
+          title="Issues by Status"
+          :labels="issuesByStateGroup.map(s => s.label)"
+          :data="issuesByStateGroup.map(s => s.count)"
+          :colors="issuesByStateGroup.map(s => s.color)"
+        />
+        <BarChart
+          title="Issues by Priority"
+          :labels="issuesByPriority.map(p => p.label)"
+          :data="issuesByPriority.map(p => p.count)"
+          :colors="issuesByPriority.map(p => p.color)"
+        />
       </div>
 
       <!-- Projects -->
@@ -110,7 +173,9 @@ onMounted(async () => {
             class="group rounded-xl border border-custom-border-200 bg-custom-background-100 p-5 transition-all hover:shadow-custom-sm hover:border-custom-border-300"
           >
             <div class="flex items-center gap-3">
-              <span class="text-2xl">{{ project.emoji || '📁' }}</span>
+              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-custom-background-80 flex-shrink-0">
+                <Briefcase class="h-5 w-5 text-custom-text-300" />
+              </div>
               <div>
                 <h3 class="font-medium text-custom-text-100 group-hover:text-brand-600 transition-colors">{{ project.name }}</h3>
                 <p class="text-xs text-custom-text-300 font-mono">{{ project.identifier }}</p>
