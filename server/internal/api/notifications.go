@@ -20,6 +20,7 @@ type notifyParams struct {
 }
 
 // notifyUsers creates a notification for each receiver, skipping the sender.
+// Also sends email notifications when a mailer is configured.
 // Errors are logged but not propagated.
 func (a *API) notifyUsers(ctx context.Context, receivers []uuid.UUID, senderID uuid.UUID, params notifyParams) {
 	for _, receiverID := range receivers {
@@ -35,6 +36,24 @@ func (a *API) notifyUsers(ctx context.Context, receivers []uuid.UUID, senderID u
 			log.Warn().Err(err).
 				Str("receiver_id", receiverID.String()).
 				Msg("failed to create notification")
+		}
+
+		// Fire-and-forget email notification
+		if a.mailer != nil {
+			go func(recvID uuid.UUID) {
+				user, err := a.queries.GetUserByID(context.Background(), recvID)
+				if err != nil || user.Email == nil || *user.Email == "" {
+					return
+				}
+				if err := a.mailer.Send(*user.Email, params.Title, "comment_added.html", map[string]string{
+					"ActorName":      "A team member",
+					"IssueName":      params.Title,
+					"CommentPreview": params.Message,
+					"IssueURL":       a.config.SiteURL,
+				}); err != nil {
+					log.Warn().Err(err).Str("to", *user.Email).Msg("failed to send email notification")
+				}
+			}(receiverID)
 		}
 	}
 }

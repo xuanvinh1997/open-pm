@@ -28,6 +28,9 @@ import {
   Sun,
   Moon,
   Users,
+  Repeat,
+  Layers,
+  FileText,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -217,6 +220,33 @@ const userName = computed(() => {
             >
               <BarChart3 class="h-3.5 w-3.5" />
               Analytics
+            </router-link>
+            <router-link
+              v-if="project.cycle_view"
+              :to="`/${slug}/projects/${project.id}/cycles`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/cycles`) }"
+            >
+              <Repeat class="h-3.5 w-3.5" />
+              Cycles
+            </router-link>
+            <router-link
+              v-if="project.module_view"
+              :to="`/${slug}/projects/${project.id}/modules`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/modules`) }"
+            >
+              <Layers class="h-3.5 w-3.5" />
+              Modules
+            </router-link>
+            <router-link
+              v-if="project.page_view"
+              :to="`/${slug}/projects/${project.id}/pages`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/pages`) }"
+            >
+              <FileText class="h-3.5 w-3.5" />
+              Pages
             </router-link>
           </div>
         </div>

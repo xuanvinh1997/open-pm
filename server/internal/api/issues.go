@@ -4,12 +4,63 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gofrs/uuid"
 	"github.com/rs/zerolog/log"
 )
+
+var validSortFields = map[string]bool{
+	"created_at": true, "updated_at": true, "priority": true,
+	"name": true, "sort_order": true, "sequence_id": true,
+}
+
+func parseIssueFilters(r *http.Request) IssueFilters {
+	q := r.URL.Query()
+	var f IssueFilters
+
+	if v := q.Get("priority"); v != "" {
+		f.Priority = strings.Split(v, ",")
+	}
+	if v := q.Get("type"); v != "" {
+		f.IssueType = strings.Split(v, ",")
+	}
+	if v := q.Get("state"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if id, err := uuid.FromString(s); err == nil {
+				f.StateIDs = append(f.StateIDs, id)
+			}
+		}
+	}
+	if v := q.Get("assignee"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if id, err := uuid.FromString(s); err == nil {
+				f.AssigneeIDs = append(f.AssigneeIDs, id)
+			}
+		}
+	}
+	if v := q.Get("label"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if id, err := uuid.FromString(s); err == nil {
+				f.LabelIDs = append(f.LabelIDs, id)
+			}
+		}
+	}
+	f.Search = q.Get("search")
+
+	sortBy := q.Get("sort_by")
+	if validSortFields[sortBy] {
+		f.SortBy = sortBy
+	}
+	sortOrder := strings.ToUpper(q.Get("sort_order"))
+	if sortOrder == "ASC" || sortOrder == "DESC" {
+		f.SortOrder = sortOrder
+	}
+
+	return f
+}
 
 var validPriorities = map[string]bool{
 	"urgent": true, "high": true, "medium": true, "low": true, "none": true,
@@ -56,13 +107,14 @@ func (a *API) ListIssues(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	projectID := getProjectID(ctx)
 	pg := parsePagination(r)
+	filters := parseIssueFilters(r)
 
-	issues, err := a.queries.ListIssuesByProject(ctx, projectID, pg.PerPage, pg.Offset())
+	issues, err := a.queries.ListIssuesByProject(ctx, projectID, filters, pg.PerPage, pg.Offset())
 	if err != nil {
 		return internalServerError("failed to list issues")
 	}
 
-	count, err := a.queries.CountIssuesByProject(ctx, projectID)
+	count, err := a.queries.CountIssuesByProject(ctx, projectID, filters)
 	if err != nil {
 		log.Warn().Err(err).Str("project_id", projectID.String()).Msg("failed to count issues")
 	}

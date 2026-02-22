@@ -335,6 +335,17 @@ type Page struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
+type IssueFilters struct {
+	Priority    []string
+	IssueType   []string
+	StateIDs    []uuid.UUID
+	AssigneeIDs []uuid.UUID
+	LabelIDs    []uuid.UUID
+	Search      string
+	SortBy      string
+	SortOrder   string
+}
+
 type WorkLog struct {
 	ID              uuid.UUID `json:"id"`
 	IssueID         uuid.UUID `json:"issue_id"`
@@ -392,6 +403,20 @@ type IssueLink struct {
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+type FileAsset struct {
+	ID          uuid.UUID  `json:"id"`
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	EntityType  string     `json:"entity_type"`
+	EntityID    uuid.UUID  `json:"entity_id"`
+	FileName    string     `json:"file_name"`
+	FileSize    int64      `json:"file_size"`
+	ContentType string     `json:"content_type"`
+	StorageKey  string     `json:"storage_key"`
+	UploadedBy  uuid.UUID  `json:"uploaded_by"`
+	DownloadURL string     `json:"download_url,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 type Notification struct {

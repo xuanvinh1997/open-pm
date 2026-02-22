@@ -11,6 +11,7 @@ import IssueActivityFeed from '@/components/issues/IssueActivityFeed.vue'
 import IssueCommentInput from '@/components/issues/IssueCommentInput.vue'
 import IssueRelationsSection from '@/components/issues/IssueRelationsSection.vue'
 import IssueLinksSection from '@/components/issues/IssueLinksSection.vue'
+import AttachmentSection from '@/components/issues/AttachmentSection.vue'
 import LogWorkModal from '@/components/issues/LogWorkModal.vue'
 import { useToast } from '@/composables/useToast'
 import { extractErrorMessage } from '@/utils/api-error'
@@ -342,6 +343,15 @@ async function handleDeleteWorkLog(id: string) {
           @add-link="handleAddLink"
           @remove-link="handleRemoveLink"
         />
+
+        <!-- Attachments -->
+        <div class="mb-8">
+          <AttachmentSection
+            :slug="slug"
+            entity-type="issue"
+            :entity-id="issueId"
+          />
+        </div>
 
         <!-- Activity -->
         <IssueActivityFeed :comments="comments" />

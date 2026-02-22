@@ -2,11 +2,103 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/open-pm/open-pm/server/internal/api"
 )
+
+// buildIssueFilterQuery constructs a dynamic SQL query for listing/counting issues with filters.
+func buildIssueFilterQuery(selectClause string, projectID uuid.UUID, filters api.IssueFilters, withPagination bool, limit, offset int) (string, []interface{}) {
+	var sb strings.Builder
+	args := []interface{}{projectID}
+	argIdx := 2
+
+	sb.WriteString(selectClause)
+	sb.WriteString(" FROM issues i")
+
+	// JOIN for assignee filtering
+	if len(filters.AssigneeIDs) > 0 {
+		sb.WriteString(" JOIN issue_assignees ia ON ia.issue_id = i.id")
+	}
+	// JOIN for label filtering
+	if len(filters.LabelIDs) > 0 {
+		sb.WriteString(" JOIN issue_labels il ON il.issue_id = i.id")
+	}
+
+	sb.WriteString(" WHERE i.project_id = $1 AND i.deleted_at IS NULL")
+
+	if len(filters.Priority) > 0 {
+		placeholders := make([]string, len(filters.Priority))
+		for idx, p := range filters.Priority {
+			placeholders[idx] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, p)
+			argIdx++
+		}
+		sb.WriteString(fmt.Sprintf(" AND i.priority IN (%s)", strings.Join(placeholders, ",")))
+	}
+	if len(filters.IssueType) > 0 {
+		placeholders := make([]string, len(filters.IssueType))
+		for idx, t := range filters.IssueType {
+			placeholders[idx] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, t)
+			argIdx++
+		}
+		sb.WriteString(fmt.Sprintf(" AND i.issue_type IN (%s)", strings.Join(placeholders, ",")))
+	}
+	if len(filters.StateIDs) > 0 {
+		placeholders := make([]string, len(filters.StateIDs))
+		for idx, id := range filters.StateIDs {
+			placeholders[idx] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, id)
+			argIdx++
+		}
+		sb.WriteString(fmt.Sprintf(" AND i.state_id IN (%s)", strings.Join(placeholders, ",")))
+	}
+	if len(filters.AssigneeIDs) > 0 {
+		placeholders := make([]string, len(filters.AssigneeIDs))
+		for idx, id := range filters.AssigneeIDs {
+			placeholders[idx] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, id)
+			argIdx++
+		}
+		sb.WriteString(fmt.Sprintf(" AND ia.assignee_id IN (%s)", strings.Join(placeholders, ",")))
+	}
+	if len(filters.LabelIDs) > 0 {
+		placeholders := make([]string, len(filters.LabelIDs))
+		for idx, id := range filters.LabelIDs {
+			placeholders[idx] = fmt.Sprintf("$%d", argIdx)
+			args = append(args, id)
+			argIdx++
+		}
+		sb.WriteString(fmt.Sprintf(" AND il.label_id IN (%s)", strings.Join(placeholders, ",")))
+	}
+	if filters.Search != "" {
+		sb.WriteString(fmt.Sprintf(" AND (i.name ILIKE $%d OR i.description_stripped ILIKE $%d)", argIdx, argIdx))
+		args = append(args, "%"+filters.Search+"%")
+		argIdx++
+	}
+
+	if withPagination {
+		// ORDER BY
+		sortBy := "i.sort_order"
+		if filters.SortBy != "" {
+			sortBy = "i." + filters.SortBy
+		}
+		sortOrder := "ASC"
+		if filters.SortOrder != "" {
+			sortOrder = filters.SortOrder
+		}
+		sb.WriteString(fmt.Sprintf(" ORDER BY %s %s, i.created_at DESC", sortBy, sortOrder))
+
+		sb.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIdx, argIdx+1))
+		args = append(args, limit, offset)
+	}
+
+	return sb.String(), args
+}
 
 // --- States ---
 
@@ -167,13 +259,13 @@ func (r *Repository) GetIssueByID(ctx context.Context, id uuid.UUID) (*api.Issue
 	return &i, err
 }
 
-func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*api.Issue, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
-		 FROM issues WHERE project_id = $1 AND deleted_at IS NULL
-		 ORDER BY sort_order ASC, created_at DESC
-		 LIMIT $2 OFFSET $3`, projectID, limit, offset)
+func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUID, filters api.IssueFilters, limit, offset int) ([]*api.Issue, error) {
+	query, args := buildIssueFilterQuery(
+		`SELECT i.id, i.project_id, i.workspace_id, i.parent_id, i.state_id, i.name, i.description_html, i.description_json, i.description_stripped,
+		        i.priority, i.issue_type, i.start_date, i.target_date, i.sequence_id, i.sort_order, i.estimate_point, i.completed_at, i.archived_at, i.is_draft, i.created_by, i.updated_by, i.created_at, i.updated_at`,
+		projectID, filters, true, limit, offset,
+	)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -224,9 +316,10 @@ func (r *Repository) ListSubIssues(ctx context.Context, parentID uuid.UUID) ([]*
 	return issues, nil
 }
 
-func (r *Repository) CountIssuesByProject(ctx context.Context, projectID uuid.UUID) (int64, error) {
+func (r *Repository) CountIssuesByProject(ctx context.Context, projectID uuid.UUID, filters api.IssueFilters) (int64, error) {
+	query, args := buildIssueFilterQuery(`SELECT COUNT(DISTINCT i.id)`, projectID, filters, false, 0, 0)
 	var count int64
-	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM issues WHERE project_id = $1 AND deleted_at IS NULL`, projectID).Scan(&count)
+	err := r.pool.QueryRow(ctx, query, args...).Scan(&count)
 	return count, err
 }
 
@@ -513,6 +606,43 @@ func (r *Repository) RemoveIssueFromCycle(ctx context.Context, cycleID, issueID 
 	return err
 }
 
+func (r *Repository) ListIssuesByCycle(ctx context.Context, cycleID uuid.UUID) ([]*api.Issue, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT i.id, i.project_id, i.workspace_id, i.parent_id, i.state_id, i.name, i.description_html, i.description_json, i.description_stripped,
+		        i.priority, i.issue_type, i.start_date, i.target_date, i.sequence_id, i.sort_order, i.estimate_point, i.completed_at, i.archived_at, i.is_draft, i.created_by, i.updated_by, i.created_at, i.updated_at
+		 FROM issues i JOIN cycle_issues ci ON ci.issue_id = i.id
+		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL
+		 ORDER BY i.sort_order ASC, i.created_at DESC`, cycleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []*api.Issue
+	for rows.Next() {
+		var i api.Issue
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
+			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
+			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+			&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		issues = append(issues, &i)
+	}
+	if issues == nil {
+		issues = []*api.Issue{}
+	}
+	return issues, nil
+}
+
+func (r *Repository) CountIssuesByCycle(ctx context.Context, cycleID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM cycle_issues ci JOIN issues i ON ci.issue_id = i.id
+		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL`, cycleID).Scan(&count)
+	return count, err
+}
+
 // --- Modules ---
 
 func (r *Repository) CreateModule(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*api.Module, error) {
@@ -583,6 +713,43 @@ func (r *Repository) AddIssueToModule(ctx context.Context, moduleID, issueID uui
 func (r *Repository) RemoveIssueFromModule(ctx context.Context, moduleID, issueID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM module_issues WHERE module_id = $1 AND issue_id = $2`, moduleID, issueID)
 	return err
+}
+
+func (r *Repository) ListIssuesByModule(ctx context.Context, moduleID uuid.UUID) ([]*api.Issue, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT i.id, i.project_id, i.workspace_id, i.parent_id, i.state_id, i.name, i.description_html, i.description_json, i.description_stripped,
+		        i.priority, i.issue_type, i.start_date, i.target_date, i.sequence_id, i.sort_order, i.estimate_point, i.completed_at, i.archived_at, i.is_draft, i.created_by, i.updated_by, i.created_at, i.updated_at
+		 FROM issues i JOIN module_issues mi ON mi.issue_id = i.id
+		 WHERE mi.module_id = $1 AND i.deleted_at IS NULL
+		 ORDER BY i.sort_order ASC, i.created_at DESC`, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []*api.Issue
+	for rows.Next() {
+		var i api.Issue
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
+			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
+			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+			&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		issues = append(issues, &i)
+	}
+	if issues == nil {
+		issues = []*api.Issue{}
+	}
+	return issues, nil
+}
+
+func (r *Repository) CountIssuesByModule(ctx context.Context, moduleID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM module_issues mi JOIN issues i ON mi.issue_id = i.id
+		 WHERE mi.module_id = $1 AND i.deleted_at IS NULL`, moduleID).Scan(&count)
+	return count, err
 }
 
 // --- Pages ---
@@ -731,4 +898,60 @@ func (r *Repository) AddIssueSubscriber(ctx context.Context, issueID, subscriber
 		`INSERT INTO issue_subscribers (issue_id, subscriber_id) VALUES ($1, $2) ON CONFLICT (issue_id, subscriber_id) DO NOTHING`,
 		issueID, subscriberID)
 	return err
+}
+
+// --- Search ---
+
+func (r *Repository) SearchIssues(ctx context.Context, workspaceID uuid.UUID, query string, limit int) ([]*api.Issue, error) {
+	pattern := "%" + query + "%"
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		 FROM issues WHERE workspace_id = $1 AND deleted_at IS NULL AND (name ILIKE $2 OR description_stripped ILIKE $2)
+		 ORDER BY updated_at DESC LIMIT $3`, workspaceID, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []*api.Issue
+	for rows.Next() {
+		var i api.Issue
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
+			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
+			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+			&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		issues = append(issues, &i)
+	}
+	if issues == nil {
+		issues = []*api.Issue{}
+	}
+	return issues, nil
+}
+
+func (r *Repository) SearchPages(ctx context.Context, workspaceID uuid.UUID, query string, limit int) ([]*api.Page, error) {
+	pattern := "%" + query + "%"
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, project_id, workspace_id, name, description_html, description_json, description_stripped, color, is_locked, archived_at, owned_by, parent_id, created_at, updated_at
+		 FROM pages WHERE workspace_id = $1 AND deleted_at IS NULL AND (name ILIKE $2 OR description_stripped ILIKE $2)
+		 ORDER BY updated_at DESC LIMIT $3`, workspaceID, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var pages []*api.Page
+	for rows.Next() {
+		var p api.Page
+		if err := rows.Scan(&p.ID, &p.ProjectID, &p.WorkspaceID, &p.Name, &p.DescriptionHTML, &p.DescriptionJSON, &p.DescriptionStripped, &p.Color, &p.IsLocked, &p.ArchivedAt, &p.OwnedBy, &p.ParentID, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		pages = append(pages, &p)
+	}
+	if pages == nil {
+		pages = []*api.Page{}
+	}
+	return pages, nil
 }

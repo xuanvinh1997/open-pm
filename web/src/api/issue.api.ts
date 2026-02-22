@@ -4,10 +4,34 @@ import type { Issue, IssueComment, CreateIssueRequest, PaginatedResponse, WorkLo
 const base = (slug: string, projectId: string) =>
   `/api/v1/workspaces/${slug}/projects/${projectId}`
 
+export interface IssueFilterParams {
+  page?: number
+  per_page?: number
+  priority?: string
+  type?: string
+  state?: string
+  assignee?: string
+  label?: string
+  search?: string
+  sort_by?: string
+  sort_order?: string
+}
+
 export const issueApi = {
-  list(slug: string, projectId: string, page = 1, perPage = 50) {
+  list(slug: string, projectId: string, page = 1, perPage = 50, filters?: IssueFilterParams) {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('per_page', String(perPage))
+    if (filters?.priority) params.set('priority', filters.priority)
+    if (filters?.type) params.set('type', filters.type)
+    if (filters?.state) params.set('state', filters.state)
+    if (filters?.assignee) params.set('assignee', filters.assignee)
+    if (filters?.label) params.set('label', filters.label)
+    if (filters?.search) params.set('search', filters.search)
+    if (filters?.sort_by) params.set('sort_by', filters.sort_by)
+    if (filters?.sort_order) params.set('sort_order', filters.sort_order)
     return apiClient.get<PaginatedResponse<Issue>>(
-      `${base(slug, projectId)}/issues?page=${page}&per_page=${perPage}`,
+      `${base(slug, projectId)}/issues?${params.toString()}`,
     )
   },
 
