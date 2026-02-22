@@ -59,7 +59,9 @@ onMounted(async () => {
     await projectStore.setCurrentProject(slug, projectId)
     await Promise.all([
       projectStore.fetchStates(slug, projectId),
+      projectStore.fetchLabels(slug, projectId),
       projectStore.fetchMembers(slug, projectId),
+      projectStore.fetchEstimateSystem(slug, projectId),
     ])
     const { data } = await issueApi.list(slug, projectId)
     issues.value = data.results
@@ -69,7 +71,7 @@ onMounted(async () => {
   }
 })
 
-async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; issue_type?: string; description_html?: string; start_date?: string; target_date?: string }) {
+async function handleCreateIssue(data: { name: string; state_id?: string; priority: string; issue_type?: string; description_html?: string; start_date?: string; target_date?: string; estimate_point?: number; assignee_ids?: string[]; label_ids?: string[] }) {
   try {
     const req: CreateIssueRequest = {
       name: data.name,
@@ -79,6 +81,9 @@ async function handleCreateIssue(data: { name: string; state_id?: string; priori
       description_html: data.description_html,
       start_date: data.start_date,
       target_date: data.target_date,
+      estimate_point: data.estimate_point,
+      assignee_ids: data.assignee_ids,
+      label_ids: data.label_ids,
     }
     const { data: newIssue } = await issueApi.create(slug, projectId, req)
     issues.value.unshift(newIssue)
@@ -170,7 +175,9 @@ function findState(stateId: string | null | undefined) {
       v-model:open="showCreateModal"
       :states="projectStore.states"
       :labels="projectStore.labels"
+      :members="projectStore.members"
       :default-state-id="defaultStateId"
+      :estimate-system="projectStore.estimateSystem"
       @create="handleCreateIssue"
     />
   </div>

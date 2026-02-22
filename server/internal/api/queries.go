@@ -85,6 +85,7 @@ type Queries interface {
 	CreateIssue(ctx context.Context, params CreateIssueParams) (*Issue, error)
 	GetIssueByID(ctx context.Context, id uuid.UUID) (*Issue, error)
 	ListIssuesByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*Issue, error)
+	ListSubIssues(ctx context.Context, parentID uuid.UUID) ([]*Issue, error)
 	CountIssuesByProject(ctx context.Context, projectID uuid.UUID) (int64, error)
 	UpdateIssue(ctx context.Context, id uuid.UUID, params UpdateIssueParams) (*Issue, error)
 	DeleteIssue(ctx context.Context, id uuid.UUID) error
@@ -107,10 +108,10 @@ type Queries interface {
 	ListIssueActivities(ctx context.Context, issueID uuid.UUID) ([]*IssueActivityWithUser, error)
 
 	// Work Logs
-	CreateWorkLog(ctx context.Context, issueID, projectID, workspaceID uuid.UUID, durationMinutes int, description string, loggedAt time.Time, loggedBy uuid.UUID) (*WorkLog, error)
+	CreateWorkLog(ctx context.Context, issueID, projectID, workspaceID uuid.UUID, durationMinutes int, description string, startDate, endDate time.Time, loggedBy uuid.UUID) (*WorkLog, error)
 	GetWorkLogByID(ctx context.Context, id uuid.UUID) (*WorkLog, error)
 	ListWorkLogsByIssue(ctx context.Context, issueID uuid.UUID) ([]*WorkLogWithUser, error)
-	UpdateWorkLog(ctx context.Context, id uuid.UUID, durationMinutes *int, description *string, loggedAt *time.Time) (*WorkLog, error)
+	UpdateWorkLog(ctx context.Context, id uuid.UUID, durationMinutes *int, description *string, startDate, endDate *time.Time) (*WorkLog, error)
 	DeleteWorkLog(ctx context.Context, id uuid.UUID) error
 	SumWorkLogMinutesByIssue(ctx context.Context, issueID uuid.UUID) (int64, error)
 
@@ -140,8 +141,32 @@ type Queries interface {
 	DeletePage(ctx context.Context, id uuid.UUID) error
 
 	// Notifications
-	ListNotificationsByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*Notification, error)
-	CountUnreadNotifications(ctx context.Context, userID uuid.UUID) (int64, error)
+	CreateNotification(ctx context.Context, workspaceID uuid.UUID, projectID *uuid.UUID, title, message string, data []byte, entityType *string, entityID *uuid.UUID, senderID *uuid.UUID, receiverID uuid.UUID) (*Notification, error)
+	ListNotificationsByUser(ctx context.Context, userID, workspaceID uuid.UUID, limit, offset int) ([]*NotificationWithSender, error)
+	CountUnreadNotifications(ctx context.Context, userID, workspaceID uuid.UUID) (int64, error)
 	MarkNotificationRead(ctx context.Context, id, receiverID uuid.UUID) error
-	MarkAllNotificationsRead(ctx context.Context, receiverID uuid.UUID) error
+	MarkAllNotificationsRead(ctx context.Context, receiverID, workspaceID uuid.UUID) error
+
+	// Issue Subscribers
+	ListIssueSubscribers(ctx context.Context, issueID uuid.UUID) ([]uuid.UUID, error)
+	AddIssueSubscriber(ctx context.Context, issueID, subscriberID uuid.UUID) error
+
+	// Estimate Systems
+	CreateEstimateSystem(ctx context.Context, projectID, workspaceID uuid.UUID, systemType string, estimates []byte) (*EstimateSystem, error)
+	GetEstimateSystemByProject(ctx context.Context, projectID uuid.UUID) (*EstimateSystem, error)
+	UpdateEstimateSystem(ctx context.Context, id uuid.UUID, systemType *string, estimates []byte) (*EstimateSystem, error)
+	DeleteEstimateSystem(ctx context.Context, id uuid.UUID) error
+
+	// Issue Relations
+	AddIssueRelation(ctx context.Context, issueID, relatedIssueID uuid.UUID, relationType string, createdBy *uuid.UUID) (*IssueRelation, error)
+	GetIssueRelationByID(ctx context.Context, id uuid.UUID) (*IssueRelation, error)
+	RemoveIssueRelation(ctx context.Context, id uuid.UUID) error
+	RemoveInverseIssueRelation(ctx context.Context, issueID, relatedIssueID uuid.UUID, relationType string) error
+	ListIssueRelations(ctx context.Context, issueID uuid.UUID) ([]*IssueRelationWithIssue, error)
+
+	// Issue Links
+	CreateIssueLink(ctx context.Context, issueID uuid.UUID, title, url string, createdBy *uuid.UUID) (*IssueLink, error)
+	ListIssueLinksByIssue(ctx context.Context, issueID uuid.UUID) ([]*IssueLink, error)
+	UpdateIssueLink(ctx context.Context, id uuid.UUID, title, url *string) (*IssueLink, error)
+	DeleteIssueLink(ctx context.Context, id uuid.UUID) error
 }

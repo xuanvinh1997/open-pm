@@ -10,6 +10,7 @@ import { useCommandPalette } from '@/composables/useCommandPalette'
 import PAvatar from '@/components/ui/PAvatar.vue'
 import PTooltip from '@/components/ui/PTooltip.vue'
 import PDropdown from '@/components/ui/PDropdown.vue'
+import NotificationPopover from '@/components/notifications/NotificationPopover.vue'
 import {
   Home,
   Briefcase,
@@ -234,6 +235,7 @@ const userName = computed(() => {
           <span class="flex-1 truncate text-sm text-custom-text-200">
             {{ userName }}
           </span>
+          <NotificationPopover />
           <button
             @click="toggleTheme"
             class="rounded p-1 text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
@@ -266,6 +268,9 @@ const userName = computed(() => {
               :src="authStore.user?.avatar_url"
               size="sm"
             />
+          </PTooltip>
+          <PTooltip content="Notifications" position="right">
+            <NotificationPopover />
           </PTooltip>
           <PTooltip :content="theme === 'light' ? 'Dark mode' : 'Light mode'" position="right">
             <button

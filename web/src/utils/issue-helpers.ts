@@ -13,9 +13,13 @@ import {
   Bug,
   CheckSquare,
   Zap,
+  Link2,
+  Ban,
+  Lock,
+  Copy,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
-import type { IssuePriority, IssueType } from '@/types/issue.types'
+import type { IssuePriority, IssueType, RelationType } from '@/types/issue.types'
 
 interface PriorityConfig {
   icon: Component
@@ -47,6 +51,19 @@ export const ISSUE_TYPE_CONFIG: Record<IssueType, IssueTypeConfig> = {
   bug: { icon: Bug, color: '#EF4444', label: 'Bug' },
   task: { icon: CheckSquare, color: '#3B82F6', label: 'Task' },
   epic: { icon: Zap, color: '#F97316', label: 'Epic' },
+}
+
+interface RelationTypeConfig {
+  icon: Component
+  color: string
+  label: string
+}
+
+export const RELATION_TYPE_CONFIG: Record<RelationType, RelationTypeConfig> = {
+  relates_to: { icon: Link2, color: '#6B7280', label: 'Relates to' },
+  blocks: { icon: Ban, color: '#EF4444', label: 'Blocks' },
+  blocked_by: { icon: Lock, color: '#F97316', label: 'Blocked by' },
+  duplicate_of: { icon: Copy, color: '#8B5CF6', label: 'Duplicate of' },
 }
 
 export const STATE_GROUP_CONFIG: Record<string, StateGroupConfig> = {

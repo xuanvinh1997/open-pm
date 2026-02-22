@@ -177,6 +177,7 @@ type Issue struct {
 	TargetDate         *time.Time      `json:"target_date,omitempty"`
 	SequenceID         int             `json:"sequence_id"`
 	SortOrder          float64         `json:"sort_order"`
+	EstimatePoint      *int            `json:"estimate_point,omitempty"`
 	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
 	ArchivedAt         *time.Time      `json:"archived_at,omitempty"`
 	IsDraft            bool            `json:"is_draft"`
@@ -200,6 +201,7 @@ type CreateIssueParams struct {
 	StartDate          *time.Time
 	TargetDate         *time.Time
 	IsDraft            bool
+	EstimatePoint      *int
 	CreatedBy          *uuid.UUID
 }
 
@@ -216,6 +218,7 @@ type UpdateIssueParams struct {
 	ParentID           *uuid.UUID
 	SortOrder          *float64
 	IsDraft            *bool
+	EstimatePoint      *int
 	CompletedAt        *time.Time
 	ArchivedAt         *time.Time
 	UpdatedBy          *uuid.UUID
@@ -339,7 +342,8 @@ type WorkLog struct {
 	WorkspaceID     uuid.UUID `json:"workspace_id"`
 	DurationMinutes int       `json:"duration_minutes"`
 	Description     string    `json:"description"`
-	LoggedAt        time.Time `json:"logged_at"`
+	StartDate       time.Time `json:"start_date"`
+	EndDate         time.Time `json:"end_date"`
 	LoggedBy        uuid.UUID `json:"logged_by"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -351,6 +355,43 @@ type WorkLogWithUser struct {
 	LastName    string `json:"last_name"`
 	DisplayName string `json:"display_name"`
 	AvatarURL   string `json:"avatar_url"`
+}
+
+type EstimateSystem struct {
+	ID          uuid.UUID       `json:"id"`
+	ProjectID   uuid.UUID       `json:"project_id"`
+	WorkspaceID uuid.UUID       `json:"workspace_id"`
+	Type        string          `json:"type"`
+	Estimates   json.RawMessage `json:"estimates"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+type IssueRelation struct {
+	ID             uuid.UUID  `json:"id"`
+	IssueID        uuid.UUID  `json:"issue_id"`
+	RelatedIssueID uuid.UUID  `json:"related_issue_id"`
+	RelationType   string     `json:"relation_type"`
+	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type IssueRelationWithIssue struct {
+	IssueRelation
+	RelatedIssueName       string     `json:"related_issue_name"`
+	RelatedIssueSequenceID int        `json:"related_issue_sequence_id"`
+	RelatedIssuePriority   string     `json:"related_issue_priority"`
+	RelatedIssueStateID    *uuid.UUID `json:"related_issue_state_id,omitempty"`
+}
+
+type IssueLink struct {
+	ID        uuid.UUID  `json:"id"`
+	IssueID   uuid.UUID  `json:"issue_id"`
+	Title     string     `json:"title"`
+	URL       string     `json:"url"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 type Notification struct {
@@ -368,4 +409,12 @@ type Notification struct {
 	SnoozedTill *time.Time      `json:"snoozed_till,omitempty"`
 	ArchivedAt  *time.Time      `json:"archived_at,omitempty"`
 	CreatedAt   time.Time       `json:"created_at"`
+}
+
+type NotificationWithSender struct {
+	Notification
+	SenderFirstName   string `json:"sender_first_name"`
+	SenderLastName    string `json:"sender_last_name"`
+	SenderDisplayName string `json:"sender_display_name"`
+	SenderAvatarURL   string `json:"sender_avatar_url"`
 }

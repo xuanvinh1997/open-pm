@@ -14,13 +14,15 @@ import (
 type CreateWorkLogRequest struct {
 	DurationMinutes int    `json:"duration_minutes" validate:"required,min=1"`
 	Description     string `json:"description" validate:"max=1000"`
-	LoggedAt        string `json:"logged_at" validate:"required"`
+	StartDate       string `json:"start_date" validate:"required"`
+	EndDate         string `json:"end_date" validate:"required"`
 }
 
 type UpdateWorkLogRequest struct {
 	DurationMinutes *int    `json:"duration_minutes" validate:"omitempty,min=1"`
 	Description     *string `json:"description" validate:"omitempty,max=1000"`
-	LoggedAt        *string `json:"logged_at"`
+	StartDate       *string `json:"start_date"`
+	EndDate         *string `json:"end_date"`
 }
 
 // ListWorkLogs handles GET .../issues/{issueID}/work-logs
@@ -66,12 +68,19 @@ func (a *API) CreateWorkLog(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	loggedAt, err := time.Parse("2006-01-02", req.LoggedAt)
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
-		return badRequestError("invalid logged_at format, expected YYYY-MM-DD")
+		return badRequestError("invalid start_date format, expected YYYY-MM-DD")
+	}
+	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		return badRequestError("invalid end_date format, expected YYYY-MM-DD")
+	}
+	if endDate.Before(startDate) {
+		return badRequestError("end_date must not be before start_date")
 	}
 
-	workLog, err := a.queries.CreateWorkLog(ctx, issueID, projectID, workspaceID, req.DurationMinutes, req.Description, loggedAt, userID)
+	workLog, err := a.queries.CreateWorkLog(ctx, issueID, projectID, workspaceID, req.DurationMinutes, req.Description, startDate, endDate, userID)
 	if err != nil {
 		return internalServerError("failed to create work log")
 	}
@@ -131,16 +140,26 @@ func (a *API) UpdateWorkLog(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	var loggedAt *time.Time
-	if req.LoggedAt != nil {
-		t, err := time.Parse("2006-01-02", *req.LoggedAt)
+	var startDate, endDate *time.Time
+	if req.StartDate != nil {
+		t, err := time.Parse("2006-01-02", *req.StartDate)
 		if err != nil {
-			return badRequestError("invalid logged_at format, expected YYYY-MM-DD")
+			return badRequestError("invalid start_date format, expected YYYY-MM-DD")
 		}
-		loggedAt = &t
+		startDate = &t
+	}
+	if req.EndDate != nil {
+		t, err := time.Parse("2006-01-02", *req.EndDate)
+		if err != nil {
+			return badRequestError("invalid end_date format, expected YYYY-MM-DD")
+		}
+		endDate = &t
+	}
+	if startDate != nil && endDate != nil && endDate.Before(*startDate) {
+		return badRequestError("end_date must not be before start_date")
 	}
 
-	workLog, err := a.queries.UpdateWorkLog(ctx, workLogID, req.DurationMinutes, req.Description, loggedAt)
+	workLog, err := a.queries.UpdateWorkLog(ctx, workLogID, req.DurationMinutes, req.Description, startDate, endDate)
 	if err != nil {
 		return internalServerError("failed to update work log")
 	}

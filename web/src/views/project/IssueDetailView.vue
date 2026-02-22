@@ -3,13 +3,14 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
-import type { Issue, IssueComment, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest } from '@/types/issue.types'
+import type { Issue, IssueComment, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest, IssueRelation, RelationType, IssueLink } from '@/types/issue.types'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
-import PButton from '@/components/ui/PButton.vue'
 import IssueDetailSidebar from '@/components/issues/IssueDetailSidebar.vue'
 import IssueActivityFeed from '@/components/issues/IssueActivityFeed.vue'
 import IssueCommentInput from '@/components/issues/IssueCommentInput.vue'
+import IssueRelationsSection from '@/components/issues/IssueRelationsSection.vue'
+import IssueLinksSection from '@/components/issues/IssueLinksSection.vue'
 import LogWorkModal from '@/components/issues/LogWorkModal.vue'
 import { useToast } from '@/composables/useToast'
 import { extractErrorMessage } from '@/utils/api-error'
@@ -28,6 +29,8 @@ const toast = useToast()
 const issue = ref<Issue | null>(null)
 const comments = ref<IssueComment[]>([])
 const workLogs = ref<WorkLog[]>([])
+const relations = ref<IssueRelation[]>([])
+const links = ref<IssueLink[]>([])
 const totalMinutes = ref(0)
 const loading = ref(false)
 
@@ -48,6 +51,7 @@ onMounted(async () => {
       projectStore.fetchStates(slug, projectId),
       projectStore.fetchLabels(slug, projectId),
       projectStore.fetchMembers(slug, projectId),
+      projectStore.fetchEstimateSystem(slug, projectId),
     ])
 
     const { data: issueData } = await issueApi.get(slug, projectId, issueId)
@@ -56,7 +60,7 @@ onMounted(async () => {
     const { data: commentData } = await issueApi.listComments(slug, projectId, issueId)
     comments.value = commentData.results
 
-    await fetchWorkLogs()
+    await Promise.all([fetchWorkLogs(), fetchRelations(), fetchLinks()])
   } finally {
     loading.value = false
   }
@@ -69,6 +73,24 @@ async function fetchWorkLogs() {
     totalMinutes.value = data.total_minutes
   } catch (e) {
     toast.error(extractErrorMessage(e, 'Failed to load work logs'))
+  }
+}
+
+async function fetchRelations() {
+  try {
+    const { data } = await issueApi.listRelations(slug, projectId, issueId)
+    relations.value = data.results
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to load relations'))
+  }
+}
+
+async function fetchLinks() {
+  try {
+    const { data } = await issueApi.listLinks(slug, projectId, issueId)
+    links.value = data.results
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to load links'))
   }
 }
 
@@ -89,6 +111,39 @@ async function handleUpdatePriority(priority: IssuePriority) {
     issue.value = data
   } catch (e) {
     toast.error(extractErrorMessage(e, 'Failed to update priority'))
+  }
+}
+
+async function handleUpdateAssignees(assigneeIds: string[]) {
+  if (!issue.value) return
+  try {
+    await issueApi.update(slug, projectId, issueId, { assignee_ids: assigneeIds } as any)
+    // Re-fetch to get enriched assignees
+    const { data } = await issueApi.get(slug, projectId, issueId)
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update assignees'))
+  }
+}
+
+async function handleUpdateLabels(labelIds: string[]) {
+  if (!issue.value) return
+  try {
+    await issueApi.update(slug, projectId, issueId, { label_ids: labelIds } as any)
+    const { data } = await issueApi.get(slug, projectId, issueId)
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update labels'))
+  }
+}
+
+async function handleUpdateEstimatePoint(value: number | undefined) {
+  if (!issue.value) return
+  try {
+    const { data } = await issueApi.update(slug, projectId, issueId, { estimate_point: value ?? null } as any)
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update estimate'))
   }
 }
 
@@ -130,6 +185,46 @@ async function handleAddComment(html: string) {
     comments.value.push(data)
   } catch (e) {
     toast.error(extractErrorMessage(e, 'Failed to add comment'))
+  }
+}
+
+async function handleAddRelation(data: { related_issue_id: string; relation_type: RelationType }) {
+  try {
+    await issueApi.addRelation(slug, projectId, issueId, data)
+    await fetchRelations()
+    toast.success('Relation added')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to add relation'))
+  }
+}
+
+async function handleRemoveRelation(relationId: string) {
+  try {
+    await issueApi.removeRelation(slug, projectId, issueId, relationId)
+    await fetchRelations()
+    toast.success('Relation removed')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to remove relation'))
+  }
+}
+
+async function handleAddLink(data: { title: string; url: string }) {
+  try {
+    await issueApi.createLink(slug, projectId, issueId, data)
+    await fetchLinks()
+    toast.success('Link added')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to add link'))
+  }
+}
+
+async function handleRemoveLink(id: string) {
+  try {
+    await issueApi.deleteLink(slug, projectId, issueId, id)
+    await fetchLinks()
+    toast.success('Link removed')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to remove link'))
   }
 }
 
@@ -231,6 +326,23 @@ async function handleDeleteWorkLog(id: string) {
           </div>
         </div>
 
+        <!-- Relations -->
+        <IssueRelationsSection
+          :relations="relations"
+          :project-identifier="projectStore.currentProject?.identifier || ''"
+          :project-id="projectId"
+          :workspace-slug="slug"
+          @add-relation="handleAddRelation"
+          @remove-relation="handleRemoveRelation"
+        />
+
+        <!-- Links -->
+        <IssueLinksSection
+          :links="links"
+          @add-link="handleAddLink"
+          @remove-link="handleRemoveLink"
+        />
+
         <!-- Activity -->
         <IssueActivityFeed :comments="comments" />
         <IssueCommentInput @submit="handleAddComment" class="mt-4" />
@@ -242,11 +354,16 @@ async function handleDeleteWorkLog(id: string) {
           :issue="issue"
           :states="projectStore.states"
           :labels="projectStore.labels"
+          :members="projectStore.members"
           :work-logs="workLogs"
           :total-minutes="totalMinutes"
+          :estimate-system="projectStore.estimateSystem"
           @update:state="handleUpdateState"
           @update:priority="handleUpdatePriority"
           @update:type="handleUpdateType"
+          @update:estimate_point="handleUpdateEstimatePoint"
+          @update:assignees="handleUpdateAssignees"
+          @update:labels="handleUpdateLabels"
           @update:start_date="handleUpdateStartDate"
           @update:target_date="handleUpdateTargetDate"
           @log-work="handleOpenLogWork"

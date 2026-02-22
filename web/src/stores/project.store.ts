@@ -4,6 +4,7 @@ import { projectApi } from '@/api/project.api'
 import { useAuthStore } from '@/stores/auth.store'
 import { ROLE_ADMIN, ROLE_MEMBER } from '@/utils/roles'
 import type { Project, State, Label, ProjectMember } from '@/types/project.types'
+import type { EstimateSystem } from '@/types/issue.types'
 
 export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
@@ -11,6 +12,7 @@ export const useProjectStore = defineStore('project', () => {
   const states = ref<State[]>([])
   const labels = ref<Label[]>([])
   const members = ref<ProjectMember[]>([])
+  const estimateSystem = ref<EstimateSystem | null>(null)
   const currentProjectRole = ref<number>(0)
   const loading = ref(false)
 
@@ -56,6 +58,15 @@ export const useProjectStore = defineStore('project', () => {
     labels.value = data.results
   }
 
+  async function fetchEstimateSystem(slug: string, projectId: string) {
+    try {
+      const { data } = await projectApi.getEstimateSystem(slug, projectId)
+      estimateSystem.value = data
+    } catch {
+      estimateSystem.value = null
+    }
+  }
+
   async function createProject(slug: string, name: string, identifier: string, description?: string) {
     const { data } = await projectApi.create(slug, { name, identifier, description })
     projects.value.push(data)
@@ -68,6 +79,7 @@ export const useProjectStore = defineStore('project', () => {
     states,
     labels,
     members,
+    estimateSystem,
     currentProjectRole,
     loading,
     isProjectAdmin,
@@ -77,6 +89,7 @@ export const useProjectStore = defineStore('project', () => {
     fetchMembers,
     fetchStates,
     fetchLabels,
+    fetchEstimateSystem,
     createProject,
   }
 })

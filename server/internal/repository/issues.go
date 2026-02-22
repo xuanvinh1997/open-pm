@@ -140,17 +140,17 @@ func (r *Repository) DeleteLabel(ctx context.Context, id uuid.UUID) error {
 func (r *Repository) CreateIssue(ctx context.Context, params api.CreateIssueParams) (*api.Issue, error) {
 	var i api.Issue
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO issues (project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped, priority, issue_type, start_date, target_date, is_draft, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		`INSERT INTO issues (project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped, priority, issue_type, start_date, target_date, is_draft, estimate_point, created_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		 RETURNING id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		           priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
+		           priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
 		params.ProjectID, params.WorkspaceID, params.ParentID, params.StateID,
 		params.Name, params.DescriptionHTML, params.DescriptionJSON, params.DescriptionStripped,
-		params.Priority, params.IssueType, params.StartDate, params.TargetDate, params.IsDraft, params.CreatedBy,
+		params.Priority, params.IssueType, params.StartDate, params.TargetDate, params.IsDraft, params.EstimatePoint, params.CreatedBy,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
 		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
-		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
+		&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
 
@@ -158,19 +158,19 @@ func (r *Repository) GetIssueByID(ctx context.Context, id uuid.UUID) (*api.Issue
 	var i api.Issue
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
 		 FROM issues WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
 		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
-		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
+		&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
 
 func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*api.Issue, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
 		 FROM issues WHERE project_id = $1 AND deleted_at IS NULL
 		 ORDER BY sort_order ASC, created_at DESC
 		 LIMIT $2 OFFSET $3`, projectID, limit, offset)
@@ -185,7 +185,35 @@ func (r *Repository) ListIssuesByProject(ctx context.Context, projectID uuid.UUI
 		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
 			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
-			&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		issues = append(issues, &i)
+	}
+	if issues == nil {
+		issues = []*api.Issue{}
+	}
+	return issues, nil
+}
+
+func (r *Repository) ListSubIssues(ctx context.Context, parentID uuid.UUID) ([]*api.Issue, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at
+		 FROM issues WHERE parent_id = $1 AND deleted_at IS NULL
+		 ORDER BY sort_order ASC, created_at DESC`, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []*api.Issue
+	for rows.Next() {
+		var i api.Issue
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
+			&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
+			&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
+			&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
 		issues = append(issues, &i)
@@ -214,17 +242,18 @@ func (r *Repository) UpdateIssue(ctx context.Context, id uuid.UUID, params api.U
 			issue_type = COALESCE($8, issue_type),
 			start_date = $9, target_date = $10, parent_id = $11,
 			sort_order = COALESCE($12, sort_order), is_draft = COALESCE($13, is_draft),
-			completed_at = $14, archived_at = $15, updated_by = $16
+			estimate_point = $14,
+			completed_at = $15, archived_at = $16, updated_by = $17
 		 WHERE id = $1 AND deleted_at IS NULL
 		 RETURNING id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		           priority, issue_type, start_date, target_date, sequence_id, sort_order, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
+		           priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`,
 		id, params.StateID, params.Name, params.DescriptionHTML, params.DescriptionJSON,
 		params.DescriptionStripped, params.Priority, params.IssueType, params.StartDate, params.TargetDate,
-		params.ParentID, params.SortOrder, params.IsDraft, params.CompletedAt, params.ArchivedAt, params.UpdatedBy,
+		params.ParentID, params.SortOrder, params.IsDraft, params.EstimatePoint, params.CompletedAt, params.ArchivedAt, params.UpdatedBy,
 	).Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
 		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
-		&i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
+		&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
 }
 
@@ -621,32 +650,48 @@ func (r *Repository) DeletePage(ctx context.Context, id uuid.UUID) error {
 
 // --- Notifications ---
 
-func (r *Repository) ListNotificationsByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*api.Notification, error) {
+func (r *Repository) CreateNotification(ctx context.Context, workspaceID uuid.UUID, projectID *uuid.UUID, title, message string, data []byte, entityType *string, entityID *uuid.UUID, senderID *uuid.UUID, receiverID uuid.UUID) (*api.Notification, error) {
+	var n api.Notification
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO notifications (workspace_id, project_id, title, message, data, entity_type, entity_id, sender_id, receiver_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 RETURNING id, workspace_id, project_id, title, message, data, entity_type, entity_id, sender_id, receiver_id, read_at, snoozed_till, archived_at, created_at`,
+		workspaceID, projectID, title, message, data, entityType, entityID, senderID, receiverID,
+	).Scan(&n.ID, &n.WorkspaceID, &n.ProjectID, &n.Title, &n.Message, &n.Data, &n.EntityType, &n.EntityID, &n.SenderID, &n.ReceiverID, &n.ReadAt, &n.SnoozedTill, &n.ArchivedAt, &n.CreatedAt)
+	return &n, err
+}
+
+func (r *Repository) ListNotificationsByUser(ctx context.Context, userID, workspaceID uuid.UUID, limit, offset int) ([]*api.NotificationWithSender, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, workspace_id, project_id, title, message, data, entity_type, entity_id, sender_id, receiver_id, read_at, snoozed_till, archived_at, created_at
-		 FROM notifications WHERE receiver_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
+		`SELECT n.id, n.workspace_id, n.project_id, n.title, n.message, n.data, n.entity_type, n.entity_id,
+		        n.sender_id, n.receiver_id, n.read_at, n.snoozed_till, n.archived_at, n.created_at,
+		        COALESCE(u.first_name, ''), COALESCE(u.last_name, ''), COALESCE(u.display_name, ''), COALESCE(u.avatar_url, '')
+		 FROM notifications n LEFT JOIN users u ON n.sender_id = u.id
+		 WHERE n.receiver_id = $1 AND n.workspace_id = $2 ORDER BY n.created_at DESC LIMIT $3 OFFSET $4`, userID, workspaceID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var notifications []*api.Notification
+	var notifications []*api.NotificationWithSender
 	for rows.Next() {
-		var n api.Notification
-		if err := rows.Scan(&n.ID, &n.WorkspaceID, &n.ProjectID, &n.Title, &n.Message, &n.Data, &n.EntityType, &n.EntityID, &n.SenderID, &n.ReceiverID, &n.ReadAt, &n.SnoozedTill, &n.ArchivedAt, &n.CreatedAt); err != nil {
+		var n api.NotificationWithSender
+		if err := rows.Scan(&n.ID, &n.WorkspaceID, &n.ProjectID, &n.Title, &n.Message, &n.Data, &n.EntityType, &n.EntityID,
+			&n.SenderID, &n.ReceiverID, &n.ReadAt, &n.SnoozedTill, &n.ArchivedAt, &n.CreatedAt,
+			&n.SenderFirstName, &n.SenderLastName, &n.SenderDisplayName, &n.SenderAvatarURL); err != nil {
 			return nil, err
 		}
 		notifications = append(notifications, &n)
 	}
 	if notifications == nil {
-		notifications = []*api.Notification{}
+		notifications = []*api.NotificationWithSender{}
 	}
 	return notifications, nil
 }
 
-func (r *Repository) CountUnreadNotifications(ctx context.Context, userID uuid.UUID) (int64, error) {
+func (r *Repository) CountUnreadNotifications(ctx context.Context, userID, workspaceID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM notifications WHERE receiver_id = $1 AND read_at IS NULL`, userID).Scan(&count)
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM notifications WHERE receiver_id = $1 AND workspace_id = $2 AND read_at IS NULL`, userID, workspaceID).Scan(&count)
 	return count, err
 }
 
@@ -655,7 +700,35 @@ func (r *Repository) MarkNotificationRead(ctx context.Context, id, receiverID uu
 	return err
 }
 
-func (r *Repository) MarkAllNotificationsRead(ctx context.Context, receiverID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `UPDATE notifications SET read_at = NOW() WHERE receiver_id = $1 AND read_at IS NULL`, receiverID)
+func (r *Repository) MarkAllNotificationsRead(ctx context.Context, receiverID, workspaceID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `UPDATE notifications SET read_at = NOW() WHERE receiver_id = $1 AND workspace_id = $2 AND read_at IS NULL`, receiverID, workspaceID)
+	return err
+}
+
+// --- Issue Subscribers ---
+
+func (r *Repository) ListIssueSubscribers(ctx context.Context, issueID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT subscriber_id FROM issue_subscribers WHERE issue_id = $1`, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (r *Repository) AddIssueSubscriber(ctx context.Context, issueID, subscriberID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO issue_subscribers (issue_id, subscriber_id) VALUES ($1, $2) ON CONFLICT (issue_id, subscriber_id) DO NOTHING`,
+		issueID, subscriberID)
 	return err
 }

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Issue, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest } from '@/types/issue.types'
-import type { State, Label } from '@/types/project.types'
+import type { Issue, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest, EstimateSystem } from '@/types/issue.types'
+import type { State, Label, ProjectMember } from '@/types/project.types'
 import { useAuthStore } from '@/stores/auth.store'
 import StateSelector from './StateSelector.vue'
 import PrioritySelector from './PrioritySelector.vue'
 import TypeSelector from './TypeSelector.vue'
+import EstimateSelector from './EstimateSelector.vue'
+import AssigneeSelector from './AssigneeSelector.vue'
+import LabelSelector from './LabelSelector.vue'
 import PButton from '@/components/ui/PButton.vue'
 import { formatDate } from '@/utils/helpers'
 import { Calendar, Clock, Plus, Pencil, Trash2 } from 'lucide-vue-next'
@@ -14,8 +17,10 @@ interface Props {
   issue: Issue
   states: State[]
   labels: Label[]
+  members: ProjectMember[]
   workLogs: WorkLog[]
   totalMinutes: number
+  estimateSystem: EstimateSystem | null
 }
 
 const props = defineProps<Props>()
@@ -24,6 +29,9 @@ const emit = defineEmits<{
   'update:state': [stateId: string]
   'update:priority': [priority: IssuePriority]
   'update:type': [issueType: IssueType]
+  'update:estimate_point': [value: number | undefined]
+  'update:assignees': [assigneeIds: string[]]
+  'update:labels': [labelIds: string[]]
   'update:start_date': [date: string]
   'update:target_date': [date: string]
   'log-work': []
@@ -43,6 +51,25 @@ const targetDateValue = computed(() => {
   return props.issue.target_date.substring(0, 10)
 })
 
+const assigneeIds = computed(() =>
+  (props.issue.assignees || []).map((a) => a.id)
+)
+
+const labelIds = computed(() =>
+  (props.issue.labels || []).map((l) => l.id)
+)
+
+const membersAsUserSummary = computed(() =>
+  props.members.map((m) => ({
+    id: m.user_id,
+    email: m.email || '',
+    first_name: m.first_name,
+    last_name: m.last_name,
+    display_name: m.display_name,
+    avatar_url: m.avatar_url,
+  }))
+)
+
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -51,9 +78,12 @@ function formatDuration(minutes: number): string {
   return `${m}m`
 }
 
-function formatLogDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+function formatLogDate(start: string, end: string): string {
+  const s = new Date(start)
+  const e = new Date(end)
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (start.substring(0, 10) === end.substring(0, 10)) return fmt(s)
+  return `${fmt(s)} – ${fmt(e)}`
 }
 
 function isOwnLog(log: WorkLog): boolean {
@@ -93,34 +123,34 @@ function isOwnLog(log: WorkLog): boolean {
       />
     </div>
 
+    <!-- Estimate -->
+    <div v-if="props.estimateSystem">
+      <label class="mb-1.5 block text-xs font-medium text-custom-text-300">Estimate</label>
+      <EstimateSelector
+        :model-value="props.issue.estimate_point"
+        :estimate-system="props.estimateSystem"
+        @update:model-value="emit('update:estimate_point', $event)"
+      />
+    </div>
+
     <!-- Assignees -->
-    <div v-if="props.issue.assignees && props.issue.assignees.length > 0">
+    <div>
       <label class="mb-1.5 block text-xs font-medium text-custom-text-300">Assignees</label>
-      <div class="flex flex-wrap gap-1">
-        <span
-          v-for="assignee in props.issue.assignees"
-          :key="assignee.id"
-          class="inline-flex items-center gap-1 rounded-full bg-custom-background-80 px-2 py-1 text-xs text-custom-text-200"
-        >
-          {{ assignee.first_name }} {{ assignee.last_name }}
-        </span>
-      </div>
+      <AssigneeSelector
+        :model-value="assigneeIds"
+        :members="membersAsUserSummary"
+        @update:model-value="emit('update:assignees', $event)"
+      />
     </div>
 
     <!-- Labels -->
-    <div v-if="props.issue.labels && props.issue.labels.length > 0">
+    <div>
       <label class="mb-1.5 block text-xs font-medium text-custom-text-300">Labels</label>
-      <div class="flex flex-wrap gap-1">
-        <span
-          v-for="label in props.issue.labels"
-          :key="label.id"
-          class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs"
-          :style="{ backgroundColor: label.color + '1A', color: label.color }"
-        >
-          <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: label.color }" />
-          {{ label.name }}
-        </span>
-      </div>
+      <LabelSelector
+        :model-value="labelIds"
+        :labels="props.labels"
+        @update:model-value="emit('update:labels', $event)"
+      />
     </div>
 
     <!-- Dates -->
@@ -182,7 +212,7 @@ function isOwnLog(log: WorkLog): boolean {
             <div class="flex items-center gap-1.5">
               <span class="font-medium text-custom-text-100">{{ formatDuration(log.duration_minutes) }}</span>
               <span class="text-custom-text-300">&middot;</span>
-              <span class="text-custom-text-300">{{ formatLogDate(log.logged_at) }}</span>
+              <span class="text-custom-text-300">{{ formatLogDate(log.start_date, log.end_date) }}</span>
             </div>
             <p v-if="log.description" class="mt-0.5 text-custom-text-300 truncate">{{ log.description }}</p>
             <p class="mt-0.5 text-custom-text-300">{{ log.display_name || `${log.first_name} ${log.last_name}` }}</p>

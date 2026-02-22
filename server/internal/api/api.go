@@ -88,6 +88,12 @@ func NewAPI(cfg *config.Config, queries Queries) *API {
 			r.Get("/invites", a.ListWorkspaceInvites)
 			r.Post("/invites", a.CreateWorkspaceInvite)
 
+			// Notifications
+			r.Get("/notifications", a.ListNotifications)
+			r.Get("/notifications/unread-count", a.CountUnread)
+			r.Post("/notifications/{notificationID}/read", a.MarkNotificationRead)
+			r.Post("/notifications/read-all", a.MarkAllNotificationsRead)
+
 			// Projects
 			r.Get("/projects", a.ListProjects)
 			r.Post("/projects", a.CreateProject)
@@ -116,6 +122,10 @@ func NewAPI(cfg *config.Config, queries Queries) *API {
 				r.Put("/labels/{labelID}", a.UpdateLabel)
 				r.Delete("/labels/{labelID}", a.DeleteLabel)
 
+				// Estimates
+				r.Get("/estimates", a.GetEstimateSystem)
+				r.Put("/estimates", a.CreateOrUpdateEstimateSystem)
+
 				// Issues
 				r.Get("/issues", a.ListIssues)
 				r.Post("/issues", a.CreateIssue)
@@ -137,6 +147,17 @@ func NewAPI(cfg *config.Config, queries Queries) *API {
 					r.Post("/work-logs", a.CreateWorkLog)
 					r.Put("/work-logs/{workLogID}", a.UpdateWorkLog)
 					r.Delete("/work-logs/{workLogID}", a.DeleteWorkLog)
+
+					// Relations
+					r.Get("/relations", a.ListIssueRelations)
+					r.Post("/relations", a.AddIssueRelation)
+					r.Delete("/relations/{relationID}", a.RemoveIssueRelation)
+
+					// Links
+					r.Get("/links", a.ListIssueLinks)
+					r.Post("/links", a.CreateIssueLink)
+					r.Put("/links/{linkID}", a.UpdateIssueLink)
+					r.Delete("/links/{linkID}", a.DeleteIssueLink)
 				})
 			})
 		})

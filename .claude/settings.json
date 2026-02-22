@@ -35,7 +35,11 @@
       "Bash(grep:*)",
       "WebFetch(domain:confluence.atlassian.com)",
       "WebFetch(domain:support.atlassian.com)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "WebFetch(domain:developers.plane.so)",
+      "WebFetch(domain:www.jirastrategy.com)",
+      "WebFetch(domain:community.atlassian.com)",
+      "WebFetch(domain:linear.app)"
     ],
     "additionalDirectories": [
       "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",

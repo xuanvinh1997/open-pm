@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -31,6 +32,7 @@ type CreateIssueRequest struct {
 	StartDate          *string         `json:"start_date,omitempty"`
 	TargetDate         *string         `json:"target_date,omitempty"`
 	IsDraft            bool            `json:"is_draft,omitempty"`
+	EstimatePoint      *int            `json:"estimate_point,omitempty"`
 }
 
 type UpdateIssueRequest struct {
@@ -46,6 +48,7 @@ type UpdateIssueRequest struct {
 	LabelIDs           []uuid.UUID     `json:"label_ids,omitempty"`
 	StartDate          *string         `json:"start_date,omitempty"`
 	TargetDate         *string         `json:"target_date,omitempty"`
+	EstimatePoint      *int            `json:"estimate_point,omitempty"`
 }
 
 // ListIssues handles GET .../projects/{projectID}/issues
@@ -115,6 +118,9 @@ func (a *API) CreateIssue(w http.ResponseWriter, r *http.Request) error {
 		}
 		targetDate = &t
 	}
+	if startDate != nil && targetDate != nil && targetDate.Before(*startDate) {
+		return badRequestError("target_date must not be before start_date")
+	}
 
 	issue, err := a.queries.CreateIssue(ctx, CreateIssueParams{
 		ProjectID:       projectID,
@@ -129,6 +135,7 @@ func (a *API) CreateIssue(w http.ResponseWriter, r *http.Request) error {
 		StartDate:       startDate,
 		TargetDate:      targetDate,
 		IsDraft:         req.IsDraft,
+		EstimatePoint:   req.EstimatePoint,
 		CreatedBy:       &userID,
 	})
 	if err != nil {
@@ -147,6 +154,24 @@ func (a *API) CreateIssue(w http.ResponseWriter, r *http.Request) error {
 		if err := a.queries.AddIssueLabel(ctx, issue.ID, labelID); err != nil {
 			log.Warn().Err(err).Str("issue_id", issue.ID.String()).Str("label_id", labelID.String()).Msg("failed to add label")
 		}
+	}
+
+	// Auto-subscribe the creator and assignees
+	_ = a.queries.AddIssueSubscriber(ctx, issue.ID, userID)
+	for _, assigneeID := range req.AssigneeIDs {
+		_ = a.queries.AddIssueSubscriber(ctx, issue.ID, assigneeID)
+	}
+
+	// Notify assigned users
+	for _, assigneeID := range req.AssigneeIDs {
+		a.notifyUsers(ctx, []uuid.UUID{assigneeID}, userID, notifyParams{
+			WorkspaceID: workspaceID,
+			ProjectID:   &projectID,
+			Title:       fmt.Sprintf("You were assigned to \"%s\"", issue.Name),
+			Message:     "You have been assigned to a new issue",
+			EntityType:  strPtr("issue"),
+			EntityID:    &issue.ID,
+		})
 	}
 
 	// Log activity
@@ -185,7 +210,7 @@ func (a *API) GetIssue(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		log.Warn().Err(err).Str("issue_id", issueID.String()).Msg("failed to list issue labels")
 	}
-	subIssues, err := a.queries.ListIssuesByProject(r.Context(), issueID, 100, 0) // TODO: use ListSubIssues
+	subIssues, err := a.queries.ListSubIssues(r.Context(), issueID)
 	if err != nil {
 		log.Warn().Err(err).Str("issue_id", issueID.String()).Msg("failed to list sub-issues")
 	}
@@ -241,6 +266,15 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) error {
 			updateTargetDate = &t
 		}
 	}
+	if updateStartDate != nil && updateTargetDate != nil && updateTargetDate.Before(*updateStartDate) {
+		return badRequestError("target_date must not be before start_date")
+	}
+
+	// Fetch old issue for activity logging
+	oldIssue, err := a.queries.GetIssueByID(ctx, issueID)
+	if err != nil {
+		return notFoundError("issue not found")
+	}
 
 	issue, err := a.queries.UpdateIssue(ctx, issueID, UpdateIssueParams{
 		StateID:         req.StateID,
@@ -253,10 +287,138 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) error {
 		TargetDate:      updateTargetDate,
 		ParentID:        req.ParentID,
 		SortOrder:       req.SortOrder,
+		EstimatePoint:   req.EstimatePoint,
 		UpdatedBy:       &userID,
 	})
 	if err != nil {
 		return internalServerError("failed to update issue")
+	}
+
+	// Sync assignees if provided
+	if req.AssigneeIDs != nil {
+		currentAssignees, _ := a.queries.ListIssueAssignees(ctx, issueID)
+		currentSet := make(map[uuid.UUID]bool, len(currentAssignees))
+		for _, assignee := range currentAssignees {
+			currentSet[assignee.ID] = true
+		}
+		newSet := make(map[uuid.UUID]bool, len(req.AssigneeIDs))
+		for _, id := range req.AssigneeIDs {
+			newSet[id] = true
+		}
+
+		// Remove assignees no longer in the list
+		for id := range currentSet {
+			if !newSet[id] {
+				if err := a.queries.RemoveIssueAssignee(ctx, issueID, id); err != nil {
+					log.Warn().Err(err).Str("issue_id", issueID.String()).Str("assignee_id", id.String()).Msg("failed to remove assignee")
+				}
+			}
+		}
+
+		// Add new assignees
+		for id := range newSet {
+			if !currentSet[id] {
+				if err := a.queries.AddIssueAssignee(ctx, issueID, id); err != nil {
+					log.Warn().Err(err).Str("issue_id", issueID.String()).Str("assignee_id", id.String()).Msg("failed to add assignee")
+				}
+				// Auto-subscribe new assignees
+				_ = a.queries.AddIssueSubscriber(ctx, issueID, id)
+
+				// Notify newly assigned user
+				a.notifyUsers(ctx, []uuid.UUID{id}, userID, notifyParams{
+					WorkspaceID: issue.WorkspaceID,
+					ProjectID:   &issue.ProjectID,
+					Title:       fmt.Sprintf("You were assigned to \"%s\"", issue.Name),
+					Message:     "You have been assigned to an issue",
+					EntityType:  strPtr("issue"),
+					EntityID:    &issueID,
+				})
+			}
+		}
+	}
+
+	// Sync labels if provided
+	if req.LabelIDs != nil {
+		currentLabels, _ := a.queries.ListIssueLabels(ctx, issueID)
+		currentSet := make(map[uuid.UUID]bool, len(currentLabels))
+		for _, label := range currentLabels {
+			currentSet[label.ID] = true
+		}
+		newSet := make(map[uuid.UUID]bool, len(req.LabelIDs))
+		for _, id := range req.LabelIDs {
+			newSet[id] = true
+		}
+
+		for id := range currentSet {
+			if !newSet[id] {
+				if err := a.queries.RemoveIssueLabel(ctx, issueID, id); err != nil {
+					log.Warn().Err(err).Str("issue_id", issueID.String()).Str("label_id", id.String()).Msg("failed to remove label")
+				}
+			}
+		}
+		for id := range newSet {
+			if !currentSet[id] {
+				if err := a.queries.AddIssueLabel(ctx, issueID, id); err != nil {
+					log.Warn().Err(err).Str("issue_id", issueID.String()).Str("label_id", id.String()).Msg("failed to add label")
+				}
+			}
+		}
+	}
+
+	// Log activity for field changes
+	logFieldChange := func(field, oldVal, newVal string) {
+		if oldVal != newVal {
+			if _, err := a.queries.CreateIssueActivity(ctx, CreateActivityParams{
+				IssueID:     &issueID,
+				ProjectID:   issue.ProjectID,
+				WorkspaceID: issue.WorkspaceID,
+				Verb:        "updated",
+				Field:       strPtr(field),
+				OldValue:    strPtr(oldVal),
+				NewValue:    strPtr(newVal),
+				Comment:     fmt.Sprintf("changed %s", field),
+				ActorID:     &userID,
+			}); err != nil {
+				log.Warn().Err(err).Str("field", field).Msg("failed to log field change activity")
+			}
+		}
+	}
+
+	if req.Priority != nil {
+		logFieldChange("priority", oldIssue.Priority, issue.Priority)
+	}
+	if req.IssueType != nil {
+		logFieldChange("issue_type", oldIssue.IssueType, issue.IssueType)
+	}
+	if req.Name != nil {
+		logFieldChange("name", oldIssue.Name, issue.Name)
+	}
+	if req.StateID != nil {
+		oldStateStr := ""
+		if oldIssue.StateID != nil {
+			oldStateStr = oldIssue.StateID.String()
+		}
+		newStateStr := ""
+		if issue.StateID != nil {
+			newStateStr = issue.StateID.String()
+		}
+		logFieldChange("state", oldStateStr, newStateStr)
+	}
+
+	// Notify assignees and subscribers on state change
+	if req.StateID != nil {
+		assignees, _ := a.queries.ListIssueAssignees(ctx, issueID)
+		subscribers, _ := a.queries.ListIssueSubscribers(ctx, issueID)
+		receiverIDs := collectUniqueUserIDs(assignees, subscribers)
+
+		a.notifyUsers(ctx, receiverIDs, userID, notifyParams{
+			WorkspaceID: issue.WorkspaceID,
+			ProjectID:   &issue.ProjectID,
+			Title:       fmt.Sprintf("State changed on \"%s\"", issue.Name),
+			Message:     "Issue state was updated",
+			EntityType:  strPtr("issue"),
+			EntityID:    &issueID,
+		})
 	}
 
 	return sendJSON(w, http.StatusOK, issue)
@@ -325,6 +487,27 @@ func (a *API) CreateIssueComment(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return internalServerError("failed to create comment")
 	}
+
+	// Notify assignees and subscribers about the new comment
+	projectID := getProjectID(ctx)
+	assignees, _ := a.queries.ListIssueAssignees(ctx, issueID)
+	subscribers, _ := a.queries.ListIssueSubscribers(ctx, issueID)
+	receiverIDs := collectUniqueUserIDs(assignees, subscribers)
+
+	issue, _ := a.queries.GetIssueByID(ctx, issueID)
+	title := "New comment on an issue you follow"
+	if issue != nil {
+		title = fmt.Sprintf("New comment on \"%s\"", issue.Name)
+	}
+	a.notifyUsers(ctx, receiverIDs, userID, notifyParams{
+		WorkspaceID: workspaceID,
+		ProjectID:   &projectID,
+		Title:       title,
+		Message:     truncateString(body.CommentStripped, 100),
+		EntityType:  strPtr("issue_comment"),
+		EntityID:    &issueID,
+	})
+
 	return sendJSON(w, http.StatusCreated, comment)
 }
 

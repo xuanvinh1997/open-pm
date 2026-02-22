@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Project, CreateProjectRequest, State, Label, ProjectMember } from '@/types/project.types'
+import type { EstimateSystem, EstimateOption } from '@/types/issue.types'
 
 const base = (slug: string) => `/api/v1/workspaces/${slug}`
 
@@ -57,5 +58,14 @@ export const projectApi = {
 
   removeMember(slug: string, projectId: string, memberId: string) {
     return apiClient.delete(`${base(slug)}/projects/${projectId}/members/${memberId}`)
+  },
+
+  // Estimates
+  getEstimateSystem(slug: string, projectId: string) {
+    return apiClient.get<EstimateSystem>(`${base(slug)}/projects/${projectId}/estimates`)
+  },
+
+  updateEstimateSystem(slug: string, projectId: string, data: { type: string; estimates: EstimateOption[] }) {
+    return apiClient.put<EstimateSystem>(`${base(slug)}/projects/${projectId}/estimates`, data)
   },
 }
