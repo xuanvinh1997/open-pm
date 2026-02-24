@@ -7,10 +7,10 @@ import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PButton from '@/components/ui/PButton.vue'
 import PTooltip from '@/components/ui/PTooltip.vue'
 import ProjectMembersModal from '@/components/project/ProjectMembersModal.vue'
-import { LayoutList, Kanban, BarChart3, Plus, Briefcase, Users } from 'lucide-vue-next'
+import { LayoutList, Kanban, BarChart3, FileBarChart, Plus, Briefcase, Users } from 'lucide-vue-next'
 
 interface Props {
-  activeView: 'list' | 'board' | 'analytics'
+  activeView: 'list' | 'board' | 'analytics' | 'reports'
 }
 
 const props = defineProps<Props>()
@@ -31,7 +31,7 @@ const showMembersModal = ref(false)
 const breadcrumbs = computed(() => [
   { label: 'Projects', to: `/${slug.value}/projects`, icon: Briefcase },
   { label: projectStore.currentProject?.name || 'Project' },
-  { label: props.activeView === 'list' ? 'Issues' : props.activeView === 'board' ? 'Board' : 'Analytics' },
+  { label: props.activeView === 'list' ? 'Issues' : props.activeView === 'board' ? 'Board' : props.activeView === 'analytics' ? 'Analytics' : 'Reports' },
 ])
 </script>
 
@@ -63,6 +63,13 @@ const breadcrumbs = computed(() => [
           :class="props.activeView === 'analytics' ? 'bg-custom-background-80 text-custom-text-100' : 'text-custom-text-300 hover:text-custom-text-200'"
         >
           <BarChart3 class="h-4 w-4" />
+        </router-link>
+        <router-link
+          :to="`/${slug}/projects/${projectId}/reports`"
+          class="rounded px-2 py-1 transition-colors"
+          :class="props.activeView === 'reports' ? 'bg-custom-background-80 text-custom-text-100' : 'text-custom-text-300 hover:text-custom-text-200'"
+        >
+          <FileBarChart class="h-4 w-4" />
         </router-link>
       </div>
 

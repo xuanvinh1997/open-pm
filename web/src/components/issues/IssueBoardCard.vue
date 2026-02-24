@@ -19,11 +19,17 @@ const emit = defineEmits<{
 
 const priorityConfig = computed(() => PRIORITY_CONFIG[props.issue.priority] || PRIORITY_CONFIG.none)
 const typeConfig = computed(() => ISSUE_TYPE_CONFIG[props.issue.issue_type] || ISSUE_TYPE_CONFIG.task)
+
+const isOverdue = computed(() => {
+  if (!props.issue.target_date || props.issue.completed_at) return false
+  return new Date(props.issue.target_date) < new Date(new Date().toDateString())
+})
 </script>
 
 <template>
   <div
-    class="rounded-lg border border-custom-border-200 bg-custom-background-100 p-3 shadow-custom-xs hover:shadow-custom-sm transition-shadow cursor-grab"
+    class="rounded-lg border bg-custom-background-100 p-3 shadow-custom-xs hover:shadow-custom-sm transition-shadow cursor-grab"
+    :class="isOverdue ? 'border-red-300 border-l-red-500 border-l-2' : 'border-custom-border-200'"
     @click="emit('click', props.issue)"
   >
     <!-- Header: Type + Identifier + Priority -->
@@ -58,7 +64,11 @@ const typeConfig = computed(() => ISSUE_TYPE_CONFIG[props.issue.issue_type] || I
         >
           {{ label.name }}
         </PBadge>
-        <span v-if="props.issue.target_date" class="text-[10px] text-custom-text-300">
+        <span
+          v-if="props.issue.target_date"
+          class="text-[10px]"
+          :class="isOverdue ? 'text-red-500 font-medium' : 'text-custom-text-300'"
+        >
           {{ formatDate(props.issue.target_date) }}
         </span>
       </div>

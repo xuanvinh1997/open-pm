@@ -418,3 +418,86 @@ type NotificationWithSender struct {
 	SenderDisplayName string `json:"sender_display_name"`
 	SenderAvatarURL   string `json:"sender_avatar_url"`
 }
+
+// --- Report models ---
+
+type IssuesByStateReport struct {
+	StateID    uuid.UUID `json:"state_id"`
+	StateName  string    `json:"state_name"`
+	StateGroup string    `json:"state_group"`
+	Color      string    `json:"color"`
+	Count      int       `json:"count"`
+}
+
+type IssuesByPriorityReport struct {
+	Priority string `json:"priority"`
+	Count    int    `json:"count"`
+}
+
+type IssuesByTypeReport struct {
+	IssueType string `json:"issue_type"`
+	Count     int    `json:"count"`
+}
+
+type IssuesByAssigneeReport struct {
+	UserID      uuid.UUID `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	AvatarURL   string    `json:"avatar_url"`
+	Count       int       `json:"count"`
+}
+
+type WorkLogSummaryByMember struct {
+	UserID       uuid.UUID `json:"user_id"`
+	DisplayName  string    `json:"display_name"`
+	AvatarURL    string    `json:"avatar_url"`
+	TotalMinutes int       `json:"total_minutes"`
+	LogCount     int       `json:"log_count"`
+}
+
+type WorkLogSummaryByIssue struct {
+	IssueID      uuid.UUID `json:"issue_id"`
+	IssueName    string    `json:"issue_name"`
+	SequenceID   int       `json:"sequence_id"`
+	TotalMinutes int       `json:"total_minutes"`
+}
+
+type WorkLogSummaryByDate struct {
+	Date         string `json:"date"`
+	TotalMinutes int    `json:"total_minutes"`
+}
+
+type BurndownPoint struct {
+	Date           string  `json:"date"`
+	RemainingCount int     `json:"remaining_count"`
+	CompletedCount int     `json:"completed_count"`
+	IdealRemaining float64 `json:"ideal_remaining"`
+}
+
+type VelocityPoint struct {
+	CycleID        uuid.UUID `json:"cycle_id"`
+	CycleName      string    `json:"cycle_name"`
+	CompletedCount int       `json:"completed_count"`
+	TotalCount     int       `json:"total_count"`
+}
+
+type ProjectHealthReport struct {
+	OverdueIssues     []*Issue `json:"overdue_issues"`
+	BlockedIssues     []*Issue `json:"blocked_issues"`
+	UnestimatedIssues []*Issue `json:"unestimated_issues"`
+	OverdueCount      int      `json:"overdue_count"`
+	BlockedCount      int      `json:"blocked_count"`
+	UnestimatedCount  int      `json:"unestimated_count"`
+}
+
+// --- Chat models ---
+
+type ChatMessage struct {
+	ID          uuid.UUID       `json:"id"`
+	ProjectID   uuid.UUID       `json:"project_id"`
+	WorkspaceID uuid.UUID       `json:"workspace_id"`
+	UserID      uuid.UUID       `json:"user_id"`
+	Role        string          `json:"role"`
+	Content     string          `json:"content"`
+	Metadata    json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt   time.Time       `json:"created_at"`
+}

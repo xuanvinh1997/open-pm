@@ -18,6 +18,7 @@ import (
 	"github.com/open-pm/open-pm/server/internal/db"
 	"github.com/open-pm/open-pm/server/internal/repository"
 	"github.com/open-pm/open-pm/server/internal/seed"
+	"github.com/open-pm/open-pm/server/internal/service"
 )
 
 func main() {
@@ -50,8 +51,14 @@ func main() {
 		}
 	}
 
-	// Create API
-	a := api.NewAPI(cfg, repo)
+	// Create API with optional LLM provider
+	var apiOpts []func(*api.API)
+	if cfg.LLM.Enabled && cfg.LLM.APIKey != "" {
+		llmProvider := service.NewLLMProvider(&cfg.LLM)
+		apiOpts = append(apiOpts, api.WithLLM(llmProvider))
+		log.Info().Str("provider", cfg.LLM.Provider).Str("model", cfg.LLM.Model).Msg("LLM chat enabled")
+	}
+	a := api.NewAPI(cfg, repo, apiOpts...)
 
 	// Start server
 	srv := &http.Server{

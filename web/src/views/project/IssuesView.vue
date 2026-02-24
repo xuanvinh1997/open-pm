@@ -5,6 +5,8 @@ import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
 import type { Issue, CreateIssueRequest } from '@/types/issue.types'
 import ViewHeader from '@/components/issues/ViewHeader.vue'
+import IssueFilterBar from '@/components/issues/IssueFilterBar.vue'
+import type { IssueFilters } from '@/components/issues/IssueFilterBar.vue'
 import IssueListItem from '@/components/issues/IssueListItem.vue'
 import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
@@ -28,6 +30,19 @@ const totalCount = ref(0)
 const loading = ref(false)
 const showCreateModal = ref(false)
 const collapsedGroups = reactive(new Set<string>())
+const filters = ref<IssueFilters>({ priority: [], type: [], assignee: [] })
+
+const filteredIssues = computed(() => {
+  return issues.value.filter((issue) => {
+    if (filters.value.priority.length > 0 && !filters.value.priority.includes(issue.priority)) return false
+    if (filters.value.type.length > 0 && !filters.value.type.includes(issue.issue_type)) return false
+    if (filters.value.assignee.length > 0) {
+      const assigneeIds = (issue.assignees || []).map((a) => a.id)
+      if (!filters.value.assignee.some((id) => assigneeIds.includes(id))) return false
+    }
+    return true
+  })
+})
 
 const groupedIssues = computed(() => {
   const groups: Record<string, { state: typeof projectStore.states[0]; issues: Issue[] }> = {}
@@ -38,7 +53,7 @@ const groupedIssues = computed(() => {
     state: { id: 'none', name: 'No State', color: '#94A3B8', group: 'backlog' } as any,
     issues: [],
   }
-  for (const issue of issues.value) {
+  for (const issue of filteredIssues.value) {
     const key = issue.state_id || 'none'
     if (groups[key]) {
       groups[key].issues.push(issue)
@@ -116,6 +131,7 @@ function findState(stateId: string | null | undefined) {
 <template>
   <div class="flex h-full flex-col">
     <ViewHeader active-view="list" @create="showCreateModal = true" />
+    <IssueFilterBar :members="projectStore.members" @update:filters="filters = $event" />
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-1 items-center justify-center">

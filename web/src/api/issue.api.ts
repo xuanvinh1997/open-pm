@@ -41,6 +41,19 @@ export const issueApi = {
     )
   },
 
+  updateComment(slug: string, projectId: string, issueId: string, commentId: string, data: { comment_html: string }) {
+    return apiClient.put<IssueComment>(
+      `${base(slug, projectId)}/issues/${issueId}/comments/${commentId}`,
+      data,
+    )
+  },
+
+  deleteComment(slug: string, projectId: string, issueId: string, commentId: string) {
+    return apiClient.delete(
+      `${base(slug, projectId)}/issues/${issueId}/comments/${commentId}`,
+    )
+  },
+
   // Work Logs
   listWorkLogs(slug: string, projectId: string, issueId: string) {
     return apiClient.get<WorkLogListResponse>(

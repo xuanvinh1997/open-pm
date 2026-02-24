@@ -8,6 +8,8 @@ import type { State } from '@/types/project.types'
 import { calculateSortOrder } from '@/utils/sort-order'
 import draggable from 'vuedraggable'
 import ViewHeader from '@/components/issues/ViewHeader.vue'
+import IssueFilterBar from '@/components/issues/IssueFilterBar.vue'
+import type { IssueFilters } from '@/components/issues/IssueFilterBar.vue'
 import IssueBoardCard from '@/components/issues/IssueBoardCard.vue'
 import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
@@ -34,11 +36,25 @@ interface ColumnData {
 }
 
 const columnData = ref<ColumnData[]>([])
+const filters = ref<IssueFilters>({ priority: [], type: [], assignee: [] })
+
+function applyFilters(list: Issue[]) {
+  return list.filter((issue) => {
+    if (filters.value.priority.length > 0 && !filters.value.priority.includes(issue.priority)) return false
+    if (filters.value.type.length > 0 && !filters.value.type.includes(issue.issue_type)) return false
+    if (filters.value.assignee.length > 0) {
+      const assigneeIds = (issue.assignees || []).map((a) => a.id)
+      if (!filters.value.assignee.some((id) => assigneeIds.includes(id))) return false
+    }
+    return true
+  })
+}
 
 function buildColumns() {
+  const filtered = applyFilters(issues.value)
   columnData.value = projectStore.states.map((state) => ({
     state,
-    issues: issues.value
+    issues: filtered
       .filter((i) => i.state_id === state.id)
       .sort((a, b) => a.sort_order - b.sort_order),
   }))
@@ -140,6 +156,7 @@ async function handleDragChange(
 <template>
   <div class="flex h-full flex-col">
     <ViewHeader active-view="board" @create="showCreateModal = true" />
+    <IssueFilterBar :members="projectStore.members" @update:filters="(f) => { filters = f; buildColumns() }" />
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-1 items-center justify-center">

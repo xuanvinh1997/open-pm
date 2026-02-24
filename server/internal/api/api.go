@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/httprate"
 	"github.com/go-playground/validator/v10"
 	"github.com/open-pm/open-pm/server/internal/config"
+	"github.com/open-pm/open-pm/server/internal/service"
 )
 
 type API struct {
@@ -16,13 +17,24 @@ type API struct {
 	queries   Queries
 	validator *validator.Validate
 	handler   http.Handler
+	llm       service.LLMProvider
 }
 
-func NewAPI(cfg *config.Config, queries Queries) *API {
+// WithLLM sets the LLM provider on the API.
+func WithLLM(llm service.LLMProvider) func(*API) {
+	return func(a *API) {
+		a.llm = llm
+	}
+}
+
+func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 	a := &API{
 		config:    cfg,
 		queries:   queries,
 		validator: validator.New(),
+	}
+	for _, opt := range opts {
+		opt(a)
 	}
 
 	r := newRouter()
@@ -159,6 +171,21 @@ func NewAPI(cfg *config.Config, queries Queries) *API {
 					r.Put("/links/{linkID}", a.UpdateIssueLink)
 					r.Delete("/links/{linkID}", a.DeleteIssueLink)
 				})
+
+				// Cycles
+				r.Get("/cycles", a.ListCycles)
+
+				// Reports
+				r.Get("/reports/issues", a.GetIssueAnalyticsReport)
+				r.Get("/reports/work-logs", a.GetWorkLogReport)
+				r.Get("/reports/cycles/{cycleID}", a.GetCycleReport)
+				r.Get("/reports/velocity", a.GetVelocityReport)
+				r.Get("/reports/health", a.GetProjectHealthReport)
+
+				// Chat
+				r.Get("/chat", a.ListChatHistory)
+				r.Post("/chat", a.SendChatMessage)
+				r.Delete("/chat", a.ClearChatHistory)
 			})
 		})
 

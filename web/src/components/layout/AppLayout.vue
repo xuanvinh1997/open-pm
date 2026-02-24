@@ -7,6 +7,7 @@ import { useSidebar } from '@/composables/useSidebar'
 import { useMediaQuery } from '@vueuse/core'
 import Sidebar from './Sidebar.vue'
 import PCommandPalette from '@/components/ui/PCommandPalette.vue'
+import ChatWidget from '@/components/chat/ChatWidget.vue'
 
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
@@ -108,5 +109,6 @@ onMounted(async () => {
       </main>
     </div>
     <PCommandPalette />
+    <ChatWidget />
   </div>
 </template>

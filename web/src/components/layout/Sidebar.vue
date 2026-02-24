@@ -24,6 +24,7 @@ import {
   LayoutList,
   Kanban,
   BarChart3,
+  FileBarChart,
   Search,
   Sun,
   Moon,
@@ -217,6 +218,14 @@ const userName = computed(() => {
             >
               <BarChart3 class="h-3.5 w-3.5" />
               Analytics
+            </router-link>
+            <router-link
+              :to="`/${slug}/projects/${project.id}/reports`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path === `/${slug}/projects/${project.id}/reports` }"
+            >
+              <FileBarChart class="h-3.5 w-3.5" />
+              Reports
             </router-link>
           </div>
         </div>

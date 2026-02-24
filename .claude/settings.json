@@ -39,7 +39,8 @@
       "WebFetch(domain:developers.plane.so)",
       "WebFetch(domain:www.jirastrategy.com)",
       "WebFetch(domain:community.atlassian.com)",
-      "WebFetch(domain:linear.app)"
+      "WebFetch(domain:linear.app)",
+      "Bash(echo:*)"
     ],
     "additionalDirectories": [
       "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",

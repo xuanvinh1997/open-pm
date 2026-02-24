@@ -22,6 +22,11 @@ const emit = defineEmits<{
 
 const priorityConfig = computed(() => PRIORITY_CONFIG[props.issue.priority] || PRIORITY_CONFIG.none)
 const typeConfig = computed(() => ISSUE_TYPE_CONFIG[props.issue.issue_type] || ISSUE_TYPE_CONFIG.task)
+
+const isOverdue = computed(() => {
+  if (!props.issue.target_date || props.issue.completed_at) return false
+  return new Date(props.issue.target_date) < new Date(new Date().toDateString())
+})
 </script>
 
 <template>
@@ -86,7 +91,11 @@ const typeConfig = computed(() => ISSUE_TYPE_CONFIG[props.issue.issue_type] || I
     </div>
 
     <!-- Due date -->
-    <span v-if="props.issue.target_date" class="flex-shrink-0 text-xs text-custom-text-300">
+    <span
+      v-if="props.issue.target_date"
+      class="flex-shrink-0 text-xs"
+      :class="isOverdue ? 'text-red-500 font-medium' : 'text-custom-text-300'"
+    >
       {{ formatDate(props.issue.target_date) }}
     </span>
   </div>

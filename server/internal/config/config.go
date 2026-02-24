@@ -14,6 +14,15 @@ type Config struct {
 	Storage     StorageConfig   `envconfig:"STORAGE"`
 	RateLimit   RateLimitConfig `envconfig:"RATE_LIMIT"`
 	Seed        SeedConfig      `envconfig:"SEED"`
+	LLM         LLMConfig       `envconfig:"LLM"`
+}
+
+type LLMConfig struct {
+	Provider  string `envconfig:"PROVIDER" default:"openai"`
+	APIKey    string `envconfig:"API_KEY"`
+	Model     string `envconfig:"MODEL" default:"gpt-4o-mini"`
+	MaxTokens int    `envconfig:"MAX_TOKENS" default:"1024"`
+	Enabled   bool   `envconfig:"ENABLED" default:"false"`
 }
 
 type SeedConfig struct {

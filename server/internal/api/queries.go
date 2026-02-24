@@ -169,4 +169,31 @@ type Queries interface {
 	ListIssueLinksByIssue(ctx context.Context, issueID uuid.UUID) ([]*IssueLink, error)
 	UpdateIssueLink(ctx context.Context, id uuid.UUID, title, url *string) (*IssueLink, error)
 	DeleteIssueLink(ctx context.Context, id uuid.UUID) error
+
+	// Reports - Issue Analytics
+	CountIssuesByState(ctx context.Context, projectID uuid.UUID) ([]*IssuesByStateReport, error)
+	CountIssuesByPriority(ctx context.Context, projectID uuid.UUID) ([]*IssuesByPriorityReport, error)
+	CountIssuesByType(ctx context.Context, projectID uuid.UUID) ([]*IssuesByTypeReport, error)
+	CountIssuesByAssignee(ctx context.Context, projectID uuid.UUID) ([]*IssuesByAssigneeReport, error)
+
+	// Reports - Work Logs
+	SumWorkLogsByMember(ctx context.Context, projectID uuid.UUID, startDate, endDate time.Time) ([]*WorkLogSummaryByMember, error)
+	SumWorkLogsByIssue(ctx context.Context, projectID uuid.UUID, startDate, endDate time.Time) ([]*WorkLogSummaryByIssue, error)
+	SumWorkLogsByDate(ctx context.Context, projectID uuid.UUID, startDate, endDate time.Time) ([]*WorkLogSummaryByDate, error)
+
+	// Reports - Project Health
+	ListOverdueIssues(ctx context.Context, projectID uuid.UUID) ([]*Issue, error)
+	ListBlockedIssueIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error)
+	ListUnestimatedIssues(ctx context.Context, projectID uuid.UUID) ([]*Issue, error)
+
+	// Reports - Cycles
+	ListCycleIssueIDs(ctx context.Context, cycleID uuid.UUID) ([]uuid.UUID, error)
+	CountCycleIssuesByState(ctx context.Context, cycleID uuid.UUID) ([]*IssuesByStateReport, error)
+	CountCompletedCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error)
+	CountTotalCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error)
+
+	// Chat Messages
+	CreateChatMessage(ctx context.Context, projectID, workspaceID, userID uuid.UUID, role, content string) (*ChatMessage, error)
+	ListChatMessages(ctx context.Context, projectID, userID uuid.UUID, limit int) ([]*ChatMessage, error)
+	DeleteChatHistory(ctx context.Context, projectID, userID uuid.UUID) error
 }

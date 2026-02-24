@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
@@ -13,8 +13,11 @@ import IssueRelationsSection from '@/components/issues/IssueRelationsSection.vue
 import IssueLinksSection from '@/components/issues/IssueLinksSection.vue'
 import LogWorkModal from '@/components/issues/LogWorkModal.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth.store'
 import { extractErrorMessage } from '@/utils/api-error'
-import { Briefcase, ArrowLeft } from 'lucide-vue-next'
+import PButton from '@/components/ui/PButton.vue'
+import PModal from '@/components/ui/PModal.vue'
+import { Briefcase, ArrowLeft, Trash2 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +28,7 @@ const projectId = route.params.projectId as string
 const issueId = route.params.issueId as string
 
 const toast = useToast()
+const authStore = useAuthStore()
 
 const issue = ref<Issue | null>(null)
 const comments = ref<IssueComment[]>([])
@@ -36,6 +40,81 @@ const loading = ref(false)
 
 const showLogWorkModal = ref(false)
 const editingWorkLog = ref<WorkLog | null>(null)
+
+// Inline editing
+const editingTitle = ref(false)
+const editingDescription = ref(false)
+const titleInput = ref('')
+const descriptionInput = ref('')
+const titleInputRef = ref<HTMLInputElement>()
+const descriptionInputRef = ref<HTMLTextAreaElement>()
+
+function startEditTitle() {
+  if (!issue.value) return
+  titleInput.value = issue.value.name
+  editingTitle.value = true
+  nextTick(() => titleInputRef.value?.focus())
+}
+
+function startEditDescription() {
+  if (!issue.value) return
+  descriptionInput.value = issue.value.description_stripped || ''
+  editingDescription.value = true
+  nextTick(() => descriptionInputRef.value?.focus())
+}
+
+async function saveTitle() {
+  editingTitle.value = false
+  if (!issue.value || !titleInput.value.trim() || titleInput.value.trim() === issue.value.name) return
+  try {
+    const { data } = await issueApi.update(slug, projectId, issueId, { name: titleInput.value.trim() })
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update title'))
+  }
+}
+
+async function saveDescription() {
+  editingDescription.value = false
+  if (!issue.value) return
+  const newDesc = descriptionInput.value.trim()
+  if (newDesc === (issue.value.description_stripped || '')) return
+  try {
+    const html = newDesc ? `<p>${newDesc.replace(/\n/g, '</p><p>')}</p>` : ''
+    const { data } = await issueApi.update(slug, projectId, issueId, {
+      description_html: html,
+    } as any)
+    issue.value = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update description'))
+  }
+}
+
+function cancelEditTitle() {
+  editingTitle.value = false
+}
+
+function cancelEditDescription() {
+  editingDescription.value = false
+}
+
+// Delete issue
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
+
+async function handleDeleteIssue() {
+  deleting.value = true
+  try {
+    await issueApi.delete(slug, projectId, issueId)
+    toast.success('Issue deleted')
+    router.push(`/${slug}/projects/${projectId}/issues`)
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to delete issue'))
+  } finally {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
+}
 
 const breadcrumbs = computed(() => [
   { label: 'Projects', to: `/${slug}/projects`, icon: Briefcase },
@@ -188,6 +267,27 @@ async function handleAddComment(html: string) {
   }
 }
 
+async function handleUpdateComment(commentId: string, html: string) {
+  try {
+    const { data } = await issueApi.updateComment(slug, projectId, issueId, commentId, {
+      comment_html: html,
+    })
+    const idx = comments.value.findIndex((c) => c.id === commentId)
+    if (idx !== -1) comments.value[idx] = data
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update comment'))
+  }
+}
+
+async function handleDeleteComment(commentId: string) {
+  try {
+    await issueApi.deleteComment(slug, projectId, issueId, commentId)
+    comments.value = comments.value.filter((c) => c.id !== commentId)
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to delete comment'))
+  }
+}
+
 async function handleAddRelation(data: { related_issue_id: string; relation_type: RelationType }) {
   try {
     await issueApi.addRelation(slug, projectId, issueId, data)
@@ -280,6 +380,15 @@ async function handleDeleteWorkLog(id: string) {
         <ArrowLeft class="h-4 w-4" />
       </button>
       <PBreadcrumb :items="breadcrumbs" />
+      <div class="ml-auto">
+        <button
+          @click="showDeleteConfirm = true"
+          class="rounded-md p-1.5 text-custom-text-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+          title="Delete issue"
+        >
+          <Trash2 class="h-4 w-4" />
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -292,19 +401,47 @@ async function handleDeleteWorkLog(id: string) {
       <!-- Main content -->
       <div class="flex-1 overflow-y-auto p-6">
         <!-- Title -->
-        <h1 class="mb-4 text-xl font-semibold text-custom-text-100">
-          {{ issue.name }}
-        </h1>
+        <div class="mb-4">
+          <input
+            v-if="editingTitle"
+            ref="titleInputRef"
+            v-model="titleInput"
+            class="w-full text-xl font-semibold text-custom-text-100 bg-transparent border-b-2 border-brand-500 outline-none py-1"
+            @blur="saveTitle"
+            @keydown.enter="saveTitle"
+            @keydown.escape="cancelEditTitle"
+          />
+          <h1
+            v-else
+            class="text-xl font-semibold text-custom-text-100 cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"
+            @click="startEditTitle"
+          >
+            {{ issue.name }}
+          </h1>
+        </div>
 
         <!-- Description -->
         <div class="mb-8">
-          <div
-            v-if="issue.description_html"
-            class="prose prose-sm max-w-none text-custom-text-200"
-            v-html="issue.description_html"
+          <textarea
+            v-if="editingDescription"
+            ref="descriptionInputRef"
+            v-model="descriptionInput"
+            class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-200 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none min-h-[100px]"
+            @blur="saveDescription"
+            @keydown.escape="cancelEditDescription"
           />
-          <p v-else class="text-sm text-custom-text-300 italic">
-            No description provided
+          <div
+            v-else-if="issue.description_html"
+            class="prose prose-sm max-w-none text-custom-text-200 cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"
+            v-html="issue.description_html"
+            @click="startEditDescription"
+          />
+          <p
+            v-else
+            class="text-sm text-custom-text-300 italic cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"
+            @click="startEditDescription"
+          >
+            Click to add a description...
           </p>
         </div>
 
@@ -344,7 +481,12 @@ async function handleDeleteWorkLog(id: string) {
         />
 
         <!-- Activity -->
-        <IssueActivityFeed :comments="comments" />
+        <IssueActivityFeed
+          :comments="comments"
+          :current-user-id="authStore.user?.id"
+          @update-comment="handleUpdateComment"
+          @delete-comment="handleDeleteComment"
+        />
         <IssueCommentInput @submit="handleAddComment" class="mt-4" />
       </div>
 
@@ -380,5 +522,18 @@ async function handleDeleteWorkLog(id: string) {
       @create="handleCreateWorkLog"
       @update="handleUpdateWorkLog"
     />
+
+    <!-- Delete Confirmation Modal -->
+    <PModal v-model:open="showDeleteConfirm" title="Delete issue" size="sm">
+      <p class="text-sm text-custom-text-200">
+        Are you sure you want to delete
+        <span class="font-semibold text-custom-text-100">{{ issue?.name }}</span>?
+        This action cannot be undone.
+      </p>
+      <template #footer>
+        <PButton variant="secondary" size="sm" @click="showDeleteConfirm = false">Cancel</PButton>
+        <PButton variant="danger" size="sm" :loading="deleting" @click="handleDeleteIssue">Delete</PButton>
+      </template>
+    </PModal>
   </div>
 </template>
