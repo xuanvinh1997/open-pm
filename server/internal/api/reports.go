@@ -118,31 +118,31 @@ func (a *API) GetWorkLogReport(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-// GetCycleReport handles GET .../projects/{projectID}/reports/cycles/{cycleID}
-func (a *API) GetCycleReport(w http.ResponseWriter, r *http.Request) error {
+// GetSprintReport handles GET .../projects/{projectID}/reports/cycles/{sprintID}
+func (a *API) GetSprintReport(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
 		return badRequestError("invalid cycle ID")
 	}
 
-	cycle, err := a.queries.GetCycleByID(ctx, cycleID)
+	cycle, err := a.queries.GetSprintByID(ctx, sprintID)
 	if err != nil {
 		return notFoundError("cycle not found")
 	}
 
-	totalCount, err := a.queries.CountTotalCycleIssues(ctx, cycleID)
+	totalCount, err := a.queries.CountTotalSprintIssues(ctx, sprintID)
 	if err != nil {
 		return internalServerError("failed to count cycle issues")
 	}
 
-	completedCount, err := a.queries.CountCompletedCycleIssues(ctx, cycleID)
+	completedCount, err := a.queries.CountCompletedSprintIssues(ctx, sprintID)
 	if err != nil {
 		return internalServerError("failed to count completed cycle issues")
 	}
 
-	byState, err := a.queries.CountCycleIssuesByState(ctx, cycleID)
+	byState, err := a.queries.CountSprintIssuesByState(ctx, sprintID)
 	if err != nil {
 		return internalServerError("failed to count cycle issues by state")
 	}
@@ -154,7 +154,7 @@ func (a *API) GetCycleReport(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
-		"cycle":           cycle,
+		"sprint":           cycle,
 		"total_issues":    totalCount,
 		"completed_issues": completedCount,
 		"burndown_points": burndown,
@@ -167,24 +167,24 @@ func (a *API) GetVelocityReport(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	projectID := getProjectID(ctx)
 
-	cycles, err := a.queries.ListCyclesByProject(ctx, projectID)
+	cycles, err := a.queries.ListSprintsByProject(ctx, projectID)
 	if err != nil {
 		return internalServerError("failed to list cycles")
 	}
 
 	var points []VelocityPoint
 	for _, c := range cycles {
-		total, err := a.queries.CountTotalCycleIssues(ctx, c.ID)
+		total, err := a.queries.CountTotalSprintIssues(ctx, c.ID)
 		if err != nil {
 			continue
 		}
-		completed, err := a.queries.CountCompletedCycleIssues(ctx, c.ID)
+		completed, err := a.queries.CountCompletedSprintIssues(ctx, c.ID)
 		if err != nil {
 			continue
 		}
 		points = append(points, VelocityPoint{
-			CycleID:        c.ID,
-			CycleName:      c.Name,
+			SprintID:        c.ID,
+			SprintName:      c.Name,
 			CompletedCount: int(completed),
 			TotalCount:     int(total),
 		})

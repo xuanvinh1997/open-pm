@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import type { IssueComment } from '@/types/issue.types'
 import PAvatar from '@/components/ui/PAvatar.vue'
 import PButton from '@/components/ui/PButton.vue'
+import { RichTextEditor, RichTextDisplay } from '@/components/editor'
 import { formatRelativeDate } from '@/utils/helpers'
 import { Pencil, Trash2, X, Check } from 'lucide-vue-next'
 
@@ -14,31 +15,36 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  'update-comment': [id: string, html: string]
+  'update-comment': [id: string, html: string, json?: Record<string, unknown>, stripped?: string]
   'delete-comment': [id: string]
 }>()
 
 const editingCommentId = ref<string | null>(null)
-const editText = ref('')
-const editInputRef = ref<HTMLTextAreaElement>()
+const editHtml = ref('')
+const editJson = ref<Record<string, unknown>>({})
+const editStripped = ref('')
 
 function startEdit(comment: IssueComment) {
   editingCommentId.value = comment.id
-  editText.value = comment.comment_stripped || ''
-  nextTick(() => editInputRef.value?.focus())
+  editHtml.value = comment.comment_html || ''
+  editJson.value = comment.comment_json || {}
+  editStripped.value = comment.comment_stripped || ''
 }
 
 function cancelEdit() {
   editingCommentId.value = null
-  editText.value = ''
+  editHtml.value = ''
+  editJson.value = {}
+  editStripped.value = ''
 }
 
 function saveEdit(commentId: string) {
-  if (!editText.value.trim()) return
-  const html = `<p>${editText.value.trim().replace(/\n/g, '</p><p>')}</p>`
-  emit('update-comment', commentId, html)
+  if (!editStripped.value.trim()) return
+  emit('update-comment', commentId, editHtml.value, editJson.value, editStripped.value)
   editingCommentId.value = null
-  editText.value = ''
+  editHtml.value = ''
+  editJson.value = {}
+  editStripped.value = ''
 }
 
 function isOwner(comment: IssueComment) {
@@ -85,12 +91,15 @@ function isOwner(comment: IssueComment) {
         </div>
         <!-- Edit mode -->
         <div v-if="editingCommentId === comment.id" class="mt-1">
-          <textarea
-            ref="editInputRef"
-            v-model="editText"
-            class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-200 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none"
-            :rows="3"
-            @keydown.escape="cancelEdit"
+          <RichTextEditor
+            v-model="editHtml"
+            :json="editJson"
+            toolbar="compact"
+            min-height="60px"
+            placeholder="Edit comment..."
+            autofocus
+            @update:json="(v) => editJson = v"
+            @update:stripped="(v) => editStripped = v"
           />
           <div class="mt-1 flex items-center gap-2">
             <PButton variant="primary" size="sm" @click="saveEdit(comment.id)">
@@ -104,11 +113,9 @@ function isOwner(comment: IssueComment) {
           </div>
         </div>
         <!-- Display mode -->
-        <div
-          v-else
-          class="mt-1 text-sm text-custom-text-200 prose prose-sm max-w-none"
-          v-html="comment.comment_html || comment.comment_stripped"
-        />
+        <div v-else class="mt-1">
+          <RichTextDisplay :html="comment.comment_html || comment.comment_stripped" />
+        </div>
       </div>
     </div>
   </div>

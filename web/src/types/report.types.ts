@@ -1,6 +1,6 @@
 import type { Issue } from './issue.types'
 
-export interface Cycle {
+export interface Sprint {
   id: string
   project_id: string
   workspace_id: string
@@ -67,8 +67,8 @@ export interface BurndownPoint {
 }
 
 export interface VelocityPoint {
-  cycle_id: string
-  cycle_name: string
+  sprint_id: string
+  sprint_name: string
   completed_count: number
   total_count: number
 }
@@ -101,8 +101,8 @@ export interface WorkLogReport {
   end_date: string
 }
 
-export interface CycleReportData {
-  cycle: Cycle
+export interface SprintReportData {
+  sprint: Sprint
   total_issues: number
   completed_issues: number
   burndown_points: BurndownPoint[]

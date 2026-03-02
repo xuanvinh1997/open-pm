@@ -25,16 +25,16 @@ SELECT * FROM issues
 WHERE project_id = $1 AND state_id = $2 AND deleted_at IS NULL
 ORDER BY sort_order ASC;
 
--- name: ListIssuesByCycle :many
+-- name: ListIssuesBySprint :many
 SELECT i.* FROM issues i
-JOIN cycle_issues ci ON i.id = ci.issue_id
-WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL
+JOIN sprint_issues ci ON i.id = ci.issue_id
+WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL
 ORDER BY i.sort_order ASC;
 
--- name: ListIssuesByModule :many
+-- name: ListIssuesByEpic :many
 SELECT i.* FROM issues i
-JOIN module_issues mi ON i.id = mi.issue_id
-WHERE mi.module_id = $1 AND i.deleted_at IS NULL
+JOIN epic_issues mi ON i.id = mi.issue_id
+WHERE mi.epic_id = $1 AND i.deleted_at IS NULL
 ORDER BY i.sort_order ASC;
 
 -- name: ListSubIssues :many

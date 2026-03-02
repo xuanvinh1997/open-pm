@@ -40,7 +40,13 @@
       "WebFetch(domain:www.jirastrategy.com)",
       "WebFetch(domain:community.atlassian.com)",
       "WebFetch(domain:linear.app)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git add server/cmd/server/main.go server/internal/api/api.go server/internal/api/queries.go web/src/components/layout/Sidebar.vue web/src/router/index.ts web/src/views/project/IssuesView.vue)",
+      "Bash(git add server/internal/api/reports.go)",
+      "Bash(docker compose up -d minio minio-init)",
+      "Bash(ls /Users/vinhpx/Workspaces/Mine/open-pm/server/migrations/*.up.sql)",
+      "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/db/queries/*.sql)",
+      "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/api/*.go)"
     ],
     "additionalDirectories": [
       "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",

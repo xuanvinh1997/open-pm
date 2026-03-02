@@ -158,20 +158,20 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 				r.Post("/issues", a.CreateIssue)
 
 				// Cycles
-				r.Get("/cycles", a.ListCycles)
-				r.Post("/cycles", a.CreateCycle)
+				r.Get("/sprints", a.ListSprints)
+				r.Post("/sprints", a.CreateSprint)
 
 				// Modules
-				r.Get("/modules", a.ListModules)
-				r.Post("/modules", a.CreateModule)
+				r.Get("/epics", a.ListEpics)
+				r.Post("/epics", a.CreateEpic)
 
-				r.Route("/modules/{moduleID}", func(r *router) {
-					r.Get("/", a.GetModule)
-					r.Put("/", a.UpdateModule)
-					r.Delete("/", a.DeleteModule)
+				r.Route("/epics/{epicID}", func(r *router) {
+					r.Get("/", a.GetEpic)
+					r.Put("/", a.UpdateEpic)
+					r.Delete("/", a.DeleteEpic)
 
-					r.Post("/issues", a.AddIssueToModule)
-					r.Delete("/issues/{issueID}", a.RemoveIssueFromModule)
+					r.Post("/issues", a.AddIssueToEpic)
+					r.Delete("/issues/{issueID}", a.RemoveIssueFromEpic)
 				})
 
 				// Pages
@@ -184,13 +184,13 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 					r.Delete("/", a.DeletePage)
 				})
 
-				r.Route("/cycles/{cycleID}", func(r *router) {
-					r.Get("/", a.GetCycle)
-					r.Put("/", a.UpdateCycle)
-					r.Delete("/", a.DeleteCycle)
+				r.Route("/sprints/{sprintID}", func(r *router) {
+					r.Get("/", a.GetSprint)
+					r.Put("/", a.UpdateSprint)
+					r.Delete("/", a.DeleteSprint)
 
-					r.Post("/issues", a.AddIssueToCycle)
-					r.Delete("/issues/{issueID}", a.RemoveIssueFromCycle)
+					r.Post("/issues", a.AddIssueToSprint)
+					r.Delete("/issues/{issueID}", a.RemoveIssueFromSprint)
 				})
 
 				r.Route("/issues/{issueID}", func(r *router) {
@@ -226,7 +226,7 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 				// Reports
 				r.Get("/reports/issues", a.GetIssueAnalyticsReport)
 				r.Get("/reports/work-logs", a.GetWorkLogReport)
-				r.Get("/reports/cycles/{cycleID}", a.GetCycleReport)
+				r.Get("/reports/sprints/{sprintID}", a.GetSprintReport)
 				r.Get("/reports/velocity", a.GetVelocityReport)
 				r.Get("/reports/health", a.GetProjectHealthReport)
 

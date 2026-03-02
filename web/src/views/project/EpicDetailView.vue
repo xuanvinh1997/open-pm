@@ -2,32 +2,33 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
-import { useCycleStore } from '@/stores/cycle.store'
+import { useEpicStore } from '@/stores/epic.store'
 import IssueListItem from '@/components/issues/IssueListItem.vue'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
+import PBadge from '@/components/ui/PBadge.vue'
 import { useToast } from '@/composables/useToast'
 import { extractErrorMessage } from '@/utils/api-error'
 import { formatDate } from '@/utils/helpers'
-import { Repeat, Calendar, ArrowRight, LayoutList } from 'lucide-vue-next'
+import { Layers, Calendar, ArrowRight, LayoutList } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
-const cycleStore = useCycleStore()
+const epicStore = useEpicStore()
 const toast = useToast()
 
 const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
-const cycleId = route.params.cycleId as string
+const epicId = route.params.epicId as string
 
 const loading = ref(false)
 
 const breadcrumbs = computed(() => [
   { label: projectStore.currentProject?.name || 'Project', to: `/${slug}/projects` },
-  { label: 'Cycles', to: `/${slug}/projects/${projectId}/cycles` },
-  { label: cycleStore.currentCycle?.name || 'Cycle' },
+  { label: 'Epics', to: `/${slug}/projects/${projectId}/epics` },
+  { label: epicStore.currentEpic?.name || 'Epic' },
 ])
 
 onMounted(async () => {
@@ -36,7 +37,7 @@ onMounted(async () => {
     await projectStore.setCurrentProject(slug, projectId)
     await Promise.all([
       projectStore.fetchStates(slug, projectId),
-      cycleStore.fetchCycle(slug, projectId, cycleId),
+      epicStore.fetchEpic(slug, projectId, epicId),
     ])
   } finally {
     loading.value = false
@@ -51,15 +52,6 @@ function findState(stateId: string | null | undefined) {
 function handleIssueClick(issue: { id: string }) {
   router.push(`/${slug}/projects/${projectId}/issues/${issue.id}`)
 }
-
-async function handleRemoveIssue(issueId: string) {
-  try {
-    await cycleStore.removeIssueFromCycle(slug, projectId, cycleId, issueId)
-    toast.success('Issue removed from cycle')
-  } catch (e) {
-    toast.error(extractErrorMessage(e, 'Failed to remove issue'))
-  }
-}
 </script>
 
 <template>
@@ -67,21 +59,22 @@ async function handleRemoveIssue(issueId: string) {
     <!-- Header -->
     <div class="border-b border-custom-border-200 px-4 py-3">
       <PBreadcrumb :items="breadcrumbs" />
-      <div v-if="cycleStore.currentCycle" class="mt-2 flex items-center gap-4">
-        <Repeat class="h-5 w-5 text-custom-text-300" />
-        <h1 class="text-lg font-semibold text-custom-text-100">{{ cycleStore.currentCycle.name }}</h1>
-        <div v-if="cycleStore.currentCycle.start_date && cycleStore.currentCycle.end_date" class="flex items-center gap-1.5 text-xs text-custom-text-300">
+      <div v-if="epicStore.currentEpic" class="mt-2 flex items-center gap-4">
+        <Layers class="h-5 w-5 text-custom-text-300" />
+        <h1 class="text-lg font-semibold text-custom-text-100">{{ epicStore.currentEpic.name }}</h1>
+        <PBadge>{{ epicStore.currentEpic.status }}</PBadge>
+        <div v-if="epicStore.currentEpic.start_date && epicStore.currentEpic.target_date" class="flex items-center gap-1.5 text-xs text-custom-text-300">
           <Calendar class="h-3.5 w-3.5" />
-          <span>{{ formatDate(cycleStore.currentCycle.start_date) }}</span>
+          <span>{{ formatDate(epicStore.currentEpic.start_date) }}</span>
           <ArrowRight class="h-3 w-3" />
-          <span>{{ formatDate(cycleStore.currentCycle.end_date) }}</span>
+          <span>{{ formatDate(epicStore.currentEpic.target_date) }}</span>
         </div>
         <span class="rounded-full bg-custom-background-80 px-2 py-0.5 text-2xs text-custom-text-300">
-          {{ cycleStore.totalIssues }} issue{{ cycleStore.totalIssues !== 1 ? 's' : '' }}
+          {{ epicStore.totalIssues }} issue{{ epicStore.totalIssues !== 1 ? 's' : '' }}
         </span>
       </div>
-      <p v-if="cycleStore.currentCycle?.description" class="mt-1 ml-9 text-sm text-custom-text-300">
-        {{ cycleStore.currentCycle.description }}
+      <p v-if="epicStore.currentEpic?.description" class="mt-1 ml-9 text-sm text-custom-text-300">
+        {{ epicStore.currentEpic.description }}
       </p>
     </div>
 
@@ -91,10 +84,10 @@ async function handleRemoveIssue(issueId: string) {
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="cycleStore.cycleIssues.length === 0" class="flex-1">
+    <div v-else-if="epicStore.epicIssues.length === 0" class="flex-1">
       <PEmptyState
-        title="No issues in this cycle"
-        description="Add issues to this cycle from the issue detail page."
+        title="No issues in this epic"
+        description="Add issues to this epic from the issue detail page."
         :icon="LayoutList"
       />
     </div>
@@ -102,7 +95,7 @@ async function handleRemoveIssue(issueId: string) {
     <!-- Issues list -->
     <div v-else class="flex-1 overflow-y-auto">
       <IssueListItem
-        v-for="issue in cycleStore.cycleIssues"
+        v-for="issue in epicStore.epicIssues"
         :key="issue.id"
         :issue="issue"
         :identifier="projectStore.currentProject?.identifier || ''"

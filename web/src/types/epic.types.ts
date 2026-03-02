@@ -1,6 +1,6 @@
-export type ModuleStatus = 'backlog' | 'planned' | 'in-progress' | 'paused' | 'completed' | 'cancelled'
+export type EpicStatus = 'backlog' | 'planned' | 'in-progress' | 'paused' | 'completed' | 'cancelled'
 
-export interface Module {
+export interface Epic {
   id: string
   project_id: string
   workspace_id: string
@@ -9,7 +9,7 @@ export interface Module {
   description_html: string
   start_date?: string
   target_date?: string
-  status: ModuleStatus
+  status: EpicStatus
   lead_id?: string
   sort_order: number
   archived_at?: string
@@ -18,27 +18,27 @@ export interface Module {
   updated_at: string
 }
 
-export interface CreateModuleRequest {
+export interface CreateEpicRequest {
   name: string
   description?: string
   start_date?: string
   target_date?: string
-  status?: ModuleStatus
+  status?: EpicStatus
   lead_id?: string
 }
 
-export interface UpdateModuleRequest {
+export interface UpdateEpicRequest {
   name?: string
   description?: string
   start_date?: string
   target_date?: string
-  status?: ModuleStatus
+  status?: EpicStatus
   lead_id?: string
   sort_order?: number
 }
 
-export interface ModuleDetail {
-  module: Module
+export interface EpicDetail {
+  epic: Epic
   issues: import('@/types/issue.types').Issue[]
   total_issues: number
 }

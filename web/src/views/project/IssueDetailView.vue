@@ -13,6 +13,7 @@ import IssueRelationsSection from '@/components/issues/IssueRelationsSection.vue
 import IssueLinksSection from '@/components/issues/IssueLinksSection.vue'
 import AttachmentSection from '@/components/issues/AttachmentSection.vue'
 import LogWorkModal from '@/components/issues/LogWorkModal.vue'
+import { RichTextEditor, RichTextDisplay } from '@/components/editor'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth.store'
 import { extractErrorMessage } from '@/utils/api-error'
@@ -46,9 +47,9 @@ const editingWorkLog = ref<WorkLog | null>(null)
 const editingTitle = ref(false)
 const editingDescription = ref(false)
 const titleInput = ref('')
-const descriptionInput = ref('')
+const descriptionHtml = ref('')
+const descriptionJson = ref<Record<string, unknown>>({})
 const titleInputRef = ref<HTMLInputElement>()
-const descriptionInputRef = ref<HTMLTextAreaElement>()
 
 function startEditTitle() {
   if (!issue.value) return
@@ -59,9 +60,9 @@ function startEditTitle() {
 
 function startEditDescription() {
   if (!issue.value) return
-  descriptionInput.value = issue.value.description_stripped || ''
+  descriptionHtml.value = issue.value.description_html || ''
+  descriptionJson.value = issue.value.description_json || {}
   editingDescription.value = true
-  nextTick(() => descriptionInputRef.value?.focus())
 }
 
 async function saveTitle() {
@@ -78,12 +79,11 @@ async function saveTitle() {
 async function saveDescription() {
   editingDescription.value = false
   if (!issue.value) return
-  const newDesc = descriptionInput.value.trim()
-  if (newDesc === (issue.value.description_stripped || '')) return
+  if (descriptionHtml.value === (issue.value.description_html || '')) return
   try {
-    const html = newDesc ? `<p>${newDesc.replace(/\n/g, '</p><p>')}</p>` : ''
     const { data } = await issueApi.update(slug, projectId, issueId, {
-      description_html: html,
+      description_html: descriptionHtml.value,
+      description_json: descriptionJson.value,
     } as any)
     issue.value = data
   } catch (e) {
@@ -257,10 +257,12 @@ async function handleUpdateTargetDate(date: string) {
   }
 }
 
-async function handleAddComment(html: string) {
+async function handleAddComment(html: string, json?: Record<string, unknown>, stripped?: string) {
   try {
     const { data } = await issueApi.createComment(slug, projectId, issueId, {
       comment_html: html,
+      comment_json: json,
+      comment_stripped: stripped,
     })
     comments.value.push(data)
   } catch (e) {
@@ -268,10 +270,12 @@ async function handleAddComment(html: string) {
   }
 }
 
-async function handleUpdateComment(commentId: string, html: string) {
+async function handleUpdateComment(commentId: string, html: string, json?: Record<string, unknown>, stripped?: string) {
   try {
     const { data } = await issueApi.updateComment(slug, projectId, issueId, commentId, {
       comment_html: html,
+      comment_json: json,
+      comment_stripped: stripped,
     })
     const idx = comments.value.findIndex((c) => c.id === commentId)
     if (idx !== -1) comments.value[idx] = data
@@ -423,20 +427,25 @@ async function handleDeleteWorkLog(id: string) {
 
         <!-- Description -->
         <div class="mb-8">
-          <textarea
+          <RichTextEditor
             v-if="editingDescription"
-            ref="descriptionInputRef"
-            v-model="descriptionInput"
-            class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-200 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none min-h-[100px]"
+            v-model="descriptionHtml"
+            :json="descriptionJson"
+            placeholder="Add a description..."
+            toolbar="full"
+            min-height="100px"
+            autofocus
+            @update:json="(v) => descriptionJson = v"
             @blur="saveDescription"
             @keydown.escape="cancelEditDescription"
           />
           <div
             v-else-if="issue.description_html"
-            class="prose prose-sm max-w-none text-custom-text-200 cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"
-            v-html="issue.description_html"
+            class="cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"
             @click="startEditDescription"
-          />
+          >
+            <RichTextDisplay :html="issue.description_html" />
+          </div>
           <p
             v-else
             class="text-sm text-custom-text-300 italic cursor-pointer rounded px-1 -mx-1 hover:bg-custom-background-80 transition-colors"

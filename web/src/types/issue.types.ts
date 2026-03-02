@@ -11,6 +11,7 @@ export interface Issue {
   state_id?: string
   name: string
   description_html: string
+  description_json?: Record<string, unknown>
   description_stripped: string
   priority: IssuePriority
   issue_type: IssueType
@@ -47,6 +48,7 @@ export interface IssueComment {
   id: string
   issue_id: string
   comment_html: string
+  comment_json?: Record<string, unknown>
   comment_stripped: string
   actor_id?: string
   first_name: string
@@ -60,6 +62,8 @@ export interface IssueComment {
 export interface CreateIssueRequest {
   name: string
   description_html?: string
+  description_json?: Record<string, unknown>
+  description_stripped?: string
   priority?: IssuePriority
   issue_type?: IssueType
   state_id?: string

@@ -4,8 +4,8 @@ import type { IssuePriority, IssueType, EstimateSystem, UserSummary } from '@/ty
 import type { State, Label, ProjectMember } from '@/types/project.types'
 import PModal from '@/components/ui/PModal.vue'
 import PInput from '@/components/ui/PInput.vue'
-import PTextarea from '@/components/ui/PTextarea.vue'
 import PButton from '@/components/ui/PButton.vue'
+import { RichTextEditor } from '@/components/editor'
 import StateSelector from './StateSelector.vue'
 import PrioritySelector from './PrioritySelector.vue'
 import TypeSelector from './TypeSelector.vue'
@@ -32,6 +32,8 @@ const emit = defineEmits<{
     priority: IssuePriority
     issue_type: IssueType
     description_html?: string
+    description_json?: Record<string, unknown>
+    description_stripped?: string
     start_date?: string
     target_date?: string
     estimate_point?: number
@@ -41,7 +43,9 @@ const emit = defineEmits<{
 }>()
 
 const name = ref('')
-const description = ref('')
+const descriptionHtml = ref('')
+const descriptionJson = ref<Record<string, unknown>>({})
+const descriptionStripped = ref('')
 const stateId = ref(props.defaultStateId || '')
 const priority = ref<IssuePriority>('none')
 const issueType = ref<IssueType>('task')
@@ -71,7 +75,9 @@ function handleSubmit() {
     state_id: stateId.value || undefined,
     priority: priority.value,
     issue_type: issueType.value,
-    description_html: description.value || undefined,
+    description_html: descriptionHtml.value || undefined,
+    description_json: Object.keys(descriptionJson.value).length > 0 ? descriptionJson.value : undefined,
+    description_stripped: descriptionStripped.value || undefined,
     start_date: startDate.value || undefined,
     target_date: targetDate.value || undefined,
     estimate_point: estimatePoint.value,
@@ -80,7 +86,9 @@ function handleSubmit() {
   })
   // Reset
   name.value = ''
-  description.value = ''
+  descriptionHtml.value = ''
+  descriptionJson.value = {}
+  descriptionStripped.value = ''
   priority.value = 'none'
   issueType.value = 'task'
   estimatePoint.value = undefined
@@ -102,7 +110,15 @@ function handleSubmit() {
 
       <div>
         <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Description</label>
-        <PTextarea v-model="description" placeholder="Add a description..." :rows="3" />
+        <RichTextEditor
+          v-model="descriptionHtml"
+          toolbar="compact"
+          placeholder="Add a description..."
+          min-height="80px"
+          max-height="200px"
+          @update:json="(v) => descriptionJson = v"
+          @update:stripped="(v) => descriptionStripped = v"
+        />
       </div>
 
       <div class="grid grid-cols-3 gap-3">

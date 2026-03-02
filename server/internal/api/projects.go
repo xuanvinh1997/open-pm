@@ -26,8 +26,8 @@ type UpdateProjectRequest struct {
 	DefaultAssignee *uuid.UUID `json:"default_assignee_id,omitempty"`
 	ProjectLead     *uuid.UUID `json:"project_lead_id,omitempty"`
 	Network         *int16     `json:"network,omitempty"`
-	CycleView       *bool      `json:"cycle_view,omitempty"`
-	ModuleView      *bool      `json:"module_view,omitempty"`
+	SprintView       *bool      `json:"sprint_view,omitempty"`
+	EpicView      *bool      `json:"epic_view,omitempty"`
 	PageView        *bool      `json:"page_view,omitempty"`
 	InboxView       *bool      `json:"inbox_view,omitempty"`
 }
@@ -98,7 +98,7 @@ func (a *API) UpdateProject(w http.ResponseWriter, r *http.Request) error {
 	project, err := a.queries.UpdateProject(ctx, projectID,
 		req.Name, req.Description, req.Identifier, req.Emoji,
 		req.CoverImageURL, req.DefaultAssignee, req.ProjectLead,
-		req.Network, req.CycleView, req.ModuleView, req.PageView, req.InboxView,
+		req.Network, req.SprintView, req.EpicView, req.PageView, req.InboxView,
 	)
 	if err != nil {
 		return internalServerError("failed to update project")

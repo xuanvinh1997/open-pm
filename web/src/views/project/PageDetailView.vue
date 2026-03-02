@@ -6,10 +6,10 @@ import { usePageStore } from '@/stores/page.store'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
 import PButton from '@/components/ui/PButton.vue'
-import PTextarea from '@/components/ui/PTextarea.vue'
+import { RichTextEditor } from '@/components/editor'
 import { useToast } from '@/composables/useToast'
 import { extractErrorMessage } from '@/utils/api-error'
-import { FileText, Lock, Unlock, Trash2 } from 'lucide-vue-next'
+import { Lock, Unlock, Trash2 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,7 +24,9 @@ const pageId = route.params.pageId as string
 const loading = ref(false)
 const saving = ref(false)
 const editName = ref('')
-const editContent = ref('')
+const editHtml = ref('')
+const editJson = ref<Record<string, unknown>>({})
+const editStripped = ref('')
 
 const breadcrumbs = computed(() => [
   { label: projectStore.currentProject?.name || 'Project', to: `/${slug}/projects` },
@@ -38,7 +40,9 @@ onMounted(async () => {
     await projectStore.setCurrentProject(slug, projectId)
     const page = await pageStore.fetchPage(slug, projectId, pageId)
     editName.value = page.name
-    editContent.value = page.description_html || ''
+    editHtml.value = page.description_html || ''
+    editJson.value = page.description_json || {}
+    editStripped.value = page.description_stripped || ''
   } finally {
     loading.value = false
   }
@@ -49,8 +53,9 @@ async function handleSave() {
   try {
     await pageStore.updatePage(slug, projectId, pageId, {
       name: editName.value,
-      description_html: editContent.value,
-      description_stripped: editContent.value.replace(/<[^>]*>/g, ''),
+      description_html: editHtml.value,
+      description_json: editJson.value,
+      description_stripped: editStripped.value,
     })
     toast.success('Page saved')
   } catch (e) {
@@ -116,11 +121,14 @@ async function handleDelete() {
           class="mb-4 w-full border-none bg-transparent text-2xl font-bold text-custom-text-100 placeholder-custom-text-300 focus:outline-none"
           placeholder="Untitled page"
         />
-        <PTextarea
-          v-model="editContent"
+        <RichTextEditor
+          v-model="editHtml"
+          :json="editJson"
+          toolbar="full"
           placeholder="Start writing..."
-          :rows="20"
-          class="min-h-[400px]"
+          min-height="400px"
+          @update:json="(v) => editJson = v"
+          @update:stripped="(v) => editStripped = v"
         />
       </div>
     </div>

@@ -298,14 +298,14 @@ func (r *Repository) ListUnestimatedIssues(ctx context.Context, projectID uuid.U
 	return issues, nil
 }
 
-// --- Reports: Cycles ---
+// --- Reports: Sprints ---
 
-func (r *Repository) ListCycleIssueIDs(ctx context.Context, cycleID uuid.UUID) ([]uuid.UUID, error) {
+func (r *Repository) ListSprintIssueIDs(ctx context.Context, sprintID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT ci.issue_id
-		 FROM cycle_issues ci
+		 FROM sprint_issues ci
 		 JOIN issues i ON ci.issue_id = i.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL`, cycleID)
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL`, sprintID)
 	if err != nil {
 		return nil, err
 	}
@@ -325,15 +325,15 @@ func (r *Repository) ListCycleIssueIDs(ctx context.Context, cycleID uuid.UUID) (
 	return ids, nil
 }
 
-func (r *Repository) CountCycleIssuesByState(ctx context.Context, cycleID uuid.UUID) ([]*api.IssuesByStateReport, error) {
+func (r *Repository) CountSprintIssuesByState(ctx context.Context, sprintID uuid.UUID) ([]*api.IssuesByStateReport, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name, s."group", s.color, COUNT(i.id)::int
-		 FROM cycle_issues ci
+		 FROM sprint_issues ci
 		 JOIN issues i ON ci.issue_id = i.id
 		 JOIN states s ON i.state_id = s.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL
 		 GROUP BY s.id, s.name, s."group", s.color
-		 ORDER BY s.sequence ASC`, cycleID)
+		 ORDER BY s.sequence ASC`, sprintID)
 	if err != nil {
 		return nil, err
 	}
@@ -353,24 +353,24 @@ func (r *Repository) CountCycleIssuesByState(ctx context.Context, cycleID uuid.U
 	return results, nil
 }
 
-func (r *Repository) CountCompletedCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error) {
+func (r *Repository) CountCompletedSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.pool.QueryRow(ctx,
 		`SELECT COUNT(*)
-		 FROM cycle_issues ci
+		 FROM sprint_issues ci
 		 JOIN issues i ON ci.issue_id = i.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL AND i.completed_at IS NOT NULL`, cycleID,
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL AND i.completed_at IS NOT NULL`, sprintID,
 	).Scan(&count)
 	return count, err
 }
 
-func (r *Repository) CountTotalCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error) {
+func (r *Repository) CountTotalSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.pool.QueryRow(ctx,
 		`SELECT COUNT(*)
-		 FROM cycle_issues ci
+		 FROM sprint_issues ci
 		 JOIN issues i ON ci.issue_id = i.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL`, cycleID,
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL`, sprintID,
 	).Scan(&count)
 	return count, err
 }

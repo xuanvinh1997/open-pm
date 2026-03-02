@@ -21,8 +21,8 @@ UPDATE projects SET
     default_assignee_id = sqlc.narg('default_assignee_id'),
     project_lead_id = sqlc.narg('project_lead_id'),
     network = COALESCE(sqlc.narg('network'), network),
-    cycle_view = COALESCE(sqlc.narg('cycle_view'), cycle_view),
-    module_view = COALESCE(sqlc.narg('module_view'), module_view),
+    sprint_view = COALESCE(sqlc.narg('sprint_view'), sprint_view),
+    epic_view = COALESCE(sqlc.narg('epic_view'), epic_view),
     page_view = COALESCE(sqlc.narg('page_view'), page_view),
     inbox_view = COALESCE(sqlc.narg('inbox_view'), inbox_view)
 WHERE id = $1 AND deleted_at IS NULL

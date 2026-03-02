@@ -1,4 +1,4 @@
-export interface Cycle {
+export interface Sprint {
   id: string
   project_id: string
   workspace_id: string
@@ -14,14 +14,14 @@ export interface Cycle {
   updated_at: string
 }
 
-export interface CreateCycleRequest {
+export interface CreateSprintRequest {
   name: string
   description?: string
   start_date?: string
   end_date?: string
 }
 
-export interface UpdateCycleRequest {
+export interface UpdateSprintRequest {
   name?: string
   description?: string
   start_date?: string
@@ -29,8 +29,8 @@ export interface UpdateCycleRequest {
   sort_order?: number
 }
 
-export interface CycleDetail {
-  cycle: Cycle
+export interface SprintDetail {
+  sprint: Sprint
   issues: import('@/types/issue.types').Issue[]
   total_issues: number
 }

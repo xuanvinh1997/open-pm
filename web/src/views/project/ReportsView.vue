@@ -4,20 +4,20 @@ import { useRoute } from 'vue-router'
 import ViewHeader from '@/components/issues/ViewHeader.vue'
 import IssueAnalyticsTab from '@/components/reports/IssueAnalyticsTab.vue'
 import WorkLogTab from '@/components/reports/WorkLogTab.vue'
-import CycleReportTab from '@/components/reports/CycleReportTab.vue'
+import SprintReportTab from '@/components/reports/SprintReportTab.vue'
 import HealthTab from '@/components/reports/HealthTab.vue'
 
 const route = useRoute()
 const slug = computed(() => route.params.workspaceSlug as string)
 const projectId = computed(() => route.params.projectId as string)
 
-type TabKey = 'issues' | 'work-logs' | 'cycles' | 'health'
+type TabKey = 'issues' | 'work-logs' | 'sprints' | 'health'
 const activeTab = ref<TabKey>('issues')
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'issues', label: 'Issue Analytics' },
   { key: 'work-logs', label: 'Work Logs' },
-  { key: 'cycles', label: 'Cycle Reports' },
+  { key: 'sprints', label: 'Sprint Reports' },
   { key: 'health', label: 'Project Health' },
 ]
 </script>
@@ -49,7 +49,7 @@ const tabs: { key: TabKey; label: string }[] = [
     <div class="flex-1 overflow-y-auto p-6">
       <IssueAnalyticsTab v-if="activeTab === 'issues'" :slug="slug" :project-id="projectId" />
       <WorkLogTab v-if="activeTab === 'work-logs'" :slug="slug" :project-id="projectId" />
-      <CycleReportTab v-if="activeTab === 'cycles'" :slug="slug" :project-id="projectId" />
+      <SprintReportTab v-if="activeTab === 'sprints'" :slug="slug" :project-id="projectId" />
       <HealthTab v-if="activeTab === 'health'" :slug="slug" :project-id="projectId" />
     </div>
   </div>

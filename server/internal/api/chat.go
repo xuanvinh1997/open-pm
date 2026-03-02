@@ -136,7 +136,7 @@ func (a *API) buildProjectContext(ctx context.Context, projectID uuid.UUID) (str
 	members, _ := a.queries.ListProjectMembers(ctx, projectID)
 
 	// Get cycles
-	cycles, _ := a.queries.ListCyclesByProject(ctx, projectID)
+	cycles, _ := a.queries.ListSprintsByProject(ctx, projectID)
 
 	// Build context string
 	ctxStr := "You are an AI assistant for the project management tool Open-PM. " +
@@ -202,7 +202,7 @@ func (a *API) buildProjectContext(ctx context.Context, projectID uuid.UUID) (str
 
 	// Cycles
 	if len(cycles) > 0 {
-		ctxStr += "## Cycles/Sprints\n"
+		ctxStr += "## Sprints\n"
 		for _, c := range cycles {
 			ctxStr += "- " + c.Name
 			if c.StartDate != nil && c.EndDate != nil {

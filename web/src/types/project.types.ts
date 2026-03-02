@@ -9,8 +9,8 @@ export interface Project {
   cover_image_url?: string
   default_assignee_id?: string
   project_lead_id?: string
-  cycle_view: boolean
-  module_view: boolean
+  sprint_view: boolean
+  epic_view: boolean
   page_view: boolean
   inbox_view: boolean
   sort_order: number

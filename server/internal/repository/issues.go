@@ -535,12 +535,12 @@ func (r *Repository) ListIssueActivities(ctx context.Context, issueID uuid.UUID)
 	return activities, nil
 }
 
-// --- Cycles ---
+// --- Sprints ---
 
-func (r *Repository) CreateCycle(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*api.Cycle, error) {
-	var c api.Cycle
+func (r *Repository) CreateSprint(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*api.Sprint, error) {
+	var c api.Sprint
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO cycles (project_id, workspace_id, name, description, start_date, end_date, owned_by)
+		`INSERT INTO sprints (project_id, workspace_id, name, description, start_date, end_date, owned_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, project_id, workspace_id, name, description, start_date, end_date, owned_by, sort_order, progress_snapshot, archived_at, created_at, updated_at`,
 		projectID, workspaceID, name, description, startDate, endDate, ownedBy,
@@ -548,42 +548,42 @@ func (r *Repository) CreateCycle(ctx context.Context, projectID, workspaceID uui
 	return &c, err
 }
 
-func (r *Repository) GetCycleByID(ctx context.Context, id uuid.UUID) (*api.Cycle, error) {
-	var c api.Cycle
+func (r *Repository) GetSprintByID(ctx context.Context, id uuid.UUID) (*api.Sprint, error) {
+	var c api.Sprint
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, project_id, workspace_id, name, description, start_date, end_date, owned_by, sort_order, progress_snapshot, archived_at, created_at, updated_at
-		 FROM cycles WHERE id = $1 AND deleted_at IS NULL`, id,
+		 FROM sprints WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&c.ID, &c.ProjectID, &c.WorkspaceID, &c.Name, &c.Description, &c.StartDate, &c.EndDate, &c.OwnedBy, &c.SortOrder, &c.ProgressSnapshot, &c.ArchivedAt, &c.CreatedAt, &c.UpdatedAt)
 	return &c, err
 }
 
-func (r *Repository) ListCyclesByProject(ctx context.Context, projectID uuid.UUID) ([]*api.Cycle, error) {
+func (r *Repository) ListSprintsByProject(ctx context.Context, projectID uuid.UUID) ([]*api.Sprint, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, project_id, workspace_id, name, description, start_date, end_date, owned_by, sort_order, progress_snapshot, archived_at, created_at, updated_at
-		 FROM cycles WHERE project_id = $1 AND deleted_at IS NULL ORDER BY start_date DESC NULLS LAST`, projectID)
+		 FROM sprints WHERE project_id = $1 AND deleted_at IS NULL ORDER BY start_date DESC NULLS LAST`, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var cycles []*api.Cycle
+	var sprints []*api.Sprint
 	for rows.Next() {
-		var c api.Cycle
+		var c api.Sprint
 		if err := rows.Scan(&c.ID, &c.ProjectID, &c.WorkspaceID, &c.Name, &c.Description, &c.StartDate, &c.EndDate, &c.OwnedBy, &c.SortOrder, &c.ProgressSnapshot, &c.ArchivedAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
-		cycles = append(cycles, &c)
+		sprints = append(sprints, &c)
 	}
-	if cycles == nil {
-		cycles = []*api.Cycle{}
+	if sprints == nil {
+		sprints = []*api.Sprint{}
 	}
-	return cycles, nil
+	return sprints, nil
 }
 
-func (r *Repository) UpdateCycle(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, sortOrder *float64) (*api.Cycle, error) {
-	var c api.Cycle
+func (r *Repository) UpdateSprint(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, sortOrder *float64) (*api.Sprint, error) {
+	var c api.Sprint
 	err := r.pool.QueryRow(ctx,
-		`UPDATE cycles SET name = COALESCE($2, name), description = COALESCE($3, description), start_date = $4, end_date = $5, sort_order = COALESCE($6, sort_order)
+		`UPDATE sprints SET name = COALESCE($2, name), description = COALESCE($3, description), start_date = $4, end_date = $5, sort_order = COALESCE($6, sort_order)
 		 WHERE id = $1 AND deleted_at IS NULL
 		 RETURNING id, project_id, workspace_id, name, description, start_date, end_date, owned_by, sort_order, progress_snapshot, archived_at, created_at, updated_at`,
 		id, name, description, startDate, endDate, sortOrder,
@@ -591,28 +591,28 @@ func (r *Repository) UpdateCycle(ctx context.Context, id uuid.UUID, name, descri
 	return &c, err
 }
 
-func (r *Repository) DeleteCycle(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `UPDATE cycles SET deleted_at = NOW() WHERE id = $1`, id)
+func (r *Repository) DeleteSprint(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `UPDATE sprints SET deleted_at = NOW() WHERE id = $1`, id)
 	return err
 }
 
-func (r *Repository) AddIssueToCycle(ctx context.Context, cycleID, issueID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `INSERT INTO cycle_issues (cycle_id, issue_id) VALUES ($1, $2) ON CONFLICT (cycle_id, issue_id) DO NOTHING`, cycleID, issueID)
+func (r *Repository) AddIssueToSprint(ctx context.Context, sprintID, issueID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `INSERT INTO sprint_issues (sprint_id, issue_id) VALUES ($1, $2) ON CONFLICT (sprint_id, issue_id) DO NOTHING`, sprintID, issueID)
 	return err
 }
 
-func (r *Repository) RemoveIssueFromCycle(ctx context.Context, cycleID, issueID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM cycle_issues WHERE cycle_id = $1 AND issue_id = $2`, cycleID, issueID)
+func (r *Repository) RemoveIssueFromSprint(ctx context.Context, sprintID, issueID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2`, sprintID, issueID)
 	return err
 }
 
-func (r *Repository) ListIssuesByCycle(ctx context.Context, cycleID uuid.UUID) ([]*api.Issue, error) {
+func (r *Repository) ListIssuesBySprint(ctx context.Context, sprintID uuid.UUID) ([]*api.Issue, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT i.id, i.project_id, i.workspace_id, i.parent_id, i.state_id, i.name, i.description_html, i.description_json, i.description_stripped,
 		        i.priority, i.issue_type, i.start_date, i.target_date, i.sequence_id, i.sort_order, i.estimate_point, i.completed_at, i.archived_at, i.is_draft, i.created_by, i.updated_by, i.created_at, i.updated_at
-		 FROM issues i JOIN cycle_issues ci ON ci.issue_id = i.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL
-		 ORDER BY i.sort_order ASC, i.created_at DESC`, cycleID)
+		 FROM issues i JOIN sprint_issues ci ON ci.issue_id = i.id
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL
+		 ORDER BY i.sort_order ASC, i.created_at DESC`, sprintID)
 	if err != nil {
 		return nil, err
 	}
@@ -635,20 +635,20 @@ func (r *Repository) ListIssuesByCycle(ctx context.Context, cycleID uuid.UUID) (
 	return issues, nil
 }
 
-func (r *Repository) CountIssuesByCycle(ctx context.Context, cycleID uuid.UUID) (int64, error) {
+func (r *Repository) CountIssuesBySprint(ctx context.Context, sprintID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM cycle_issues ci JOIN issues i ON ci.issue_id = i.id
-		 WHERE ci.cycle_id = $1 AND i.deleted_at IS NULL`, cycleID).Scan(&count)
+		`SELECT COUNT(*) FROM sprint_issues ci JOIN issues i ON ci.issue_id = i.id
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL`, sprintID).Scan(&count)
 	return count, err
 }
 
-// --- Modules ---
+// --- Epics ---
 
-func (r *Repository) CreateModule(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*api.Module, error) {
-	var m api.Module
+func (r *Repository) CreateEpic(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*api.Epic, error) {
+	var m api.Epic
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO modules (project_id, workspace_id, name, description, start_date, target_date, status, lead_id, created_by)
+		`INSERT INTO epics (project_id, workspace_id, name, description, start_date, target_date, status, lead_id, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		 RETURNING id, project_id, workspace_id, name, description, description_html, start_date, target_date, status, lead_id, sort_order, archived_at, created_by, created_at, updated_at`,
 		projectID, workspaceID, name, description, startDate, targetDate, status, leadID, createdBy,
@@ -656,42 +656,42 @@ func (r *Repository) CreateModule(ctx context.Context, projectID, workspaceID uu
 	return &m, err
 }
 
-func (r *Repository) GetModuleByID(ctx context.Context, id uuid.UUID) (*api.Module, error) {
-	var m api.Module
+func (r *Repository) GetEpicByID(ctx context.Context, id uuid.UUID) (*api.Epic, error) {
+	var m api.Epic
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, project_id, workspace_id, name, description, description_html, start_date, target_date, status, lead_id, sort_order, archived_at, created_by, created_at, updated_at
-		 FROM modules WHERE id = $1 AND deleted_at IS NULL`, id,
+		 FROM epics WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&m.ID, &m.ProjectID, &m.WorkspaceID, &m.Name, &m.Description, &m.DescriptionHTML, &m.StartDate, &m.TargetDate, &m.Status, &m.LeadID, &m.SortOrder, &m.ArchivedAt, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt)
 	return &m, err
 }
 
-func (r *Repository) ListModulesByProject(ctx context.Context, projectID uuid.UUID) ([]*api.Module, error) {
+func (r *Repository) ListEpicsByProject(ctx context.Context, projectID uuid.UUID) ([]*api.Epic, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, project_id, workspace_id, name, description, description_html, start_date, target_date, status, lead_id, sort_order, archived_at, created_by, created_at, updated_at
-		 FROM modules WHERE project_id = $1 AND deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC`, projectID)
+		 FROM epics WHERE project_id = $1 AND deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC`, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var modules []*api.Module
+	var epics []*api.Epic
 	for rows.Next() {
-		var m api.Module
+		var m api.Epic
 		if err := rows.Scan(&m.ID, &m.ProjectID, &m.WorkspaceID, &m.Name, &m.Description, &m.DescriptionHTML, &m.StartDate, &m.TargetDate, &m.Status, &m.LeadID, &m.SortOrder, &m.ArchivedAt, &m.CreatedBy, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, err
 		}
-		modules = append(modules, &m)
+		epics = append(epics, &m)
 	}
-	if modules == nil {
-		modules = []*api.Module{}
+	if epics == nil {
+		epics = []*api.Epic{}
 	}
-	return modules, nil
+	return epics, nil
 }
 
-func (r *Repository) UpdateModule(ctx context.Context, id uuid.UUID, name, description *string, startDate, targetDate *time.Time, status *string, leadID *uuid.UUID, sortOrder *float64) (*api.Module, error) {
-	var m api.Module
+func (r *Repository) UpdateEpic(ctx context.Context, id uuid.UUID, name, description *string, startDate, targetDate *time.Time, status *string, leadID *uuid.UUID, sortOrder *float64) (*api.Epic, error) {
+	var m api.Epic
 	err := r.pool.QueryRow(ctx,
-		`UPDATE modules SET name = COALESCE($2, name), description = COALESCE($3, description),
+		`UPDATE epics SET name = COALESCE($2, name), description = COALESCE($3, description),
 		 start_date = $4, target_date = $5, status = COALESCE($6, status), lead_id = $7, sort_order = COALESCE($8, sort_order)
 		 WHERE id = $1 AND deleted_at IS NULL
 		 RETURNING id, project_id, workspace_id, name, description, description_html, start_date, target_date, status, lead_id, sort_order, archived_at, created_by, created_at, updated_at`,
@@ -700,28 +700,28 @@ func (r *Repository) UpdateModule(ctx context.Context, id uuid.UUID, name, descr
 	return &m, err
 }
 
-func (r *Repository) DeleteModule(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `UPDATE modules SET deleted_at = NOW() WHERE id = $1`, id)
+func (r *Repository) DeleteEpic(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `UPDATE epics SET deleted_at = NOW() WHERE id = $1`, id)
 	return err
 }
 
-func (r *Repository) AddIssueToModule(ctx context.Context, moduleID, issueID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `INSERT INTO module_issues (module_id, issue_id) VALUES ($1, $2) ON CONFLICT (module_id, issue_id) DO NOTHING`, moduleID, issueID)
+func (r *Repository) AddIssueToEpic(ctx context.Context, epicID, issueID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `INSERT INTO epic_issues (epic_id, issue_id) VALUES ($1, $2) ON CONFLICT (epic_id, issue_id) DO NOTHING`, epicID, issueID)
 	return err
 }
 
-func (r *Repository) RemoveIssueFromModule(ctx context.Context, moduleID, issueID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM module_issues WHERE module_id = $1 AND issue_id = $2`, moduleID, issueID)
+func (r *Repository) RemoveIssueFromEpic(ctx context.Context, epicID, issueID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM epic_issues WHERE epic_id = $1 AND issue_id = $2`, epicID, issueID)
 	return err
 }
 
-func (r *Repository) ListIssuesByModule(ctx context.Context, moduleID uuid.UUID) ([]*api.Issue, error) {
+func (r *Repository) ListIssuesByEpic(ctx context.Context, epicID uuid.UUID) ([]*api.Issue, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT i.id, i.project_id, i.workspace_id, i.parent_id, i.state_id, i.name, i.description_html, i.description_json, i.description_stripped,
 		        i.priority, i.issue_type, i.start_date, i.target_date, i.sequence_id, i.sort_order, i.estimate_point, i.completed_at, i.archived_at, i.is_draft, i.created_by, i.updated_by, i.created_at, i.updated_at
-		 FROM issues i JOIN module_issues mi ON mi.issue_id = i.id
-		 WHERE mi.module_id = $1 AND i.deleted_at IS NULL
-		 ORDER BY i.sort_order ASC, i.created_at DESC`, moduleID)
+		 FROM issues i JOIN epic_issues mi ON mi.issue_id = i.id
+		 WHERE mi.epic_id = $1 AND i.deleted_at IS NULL
+		 ORDER BY i.sort_order ASC, i.created_at DESC`, epicID)
 	if err != nil {
 		return nil, err
 	}
@@ -744,11 +744,11 @@ func (r *Repository) ListIssuesByModule(ctx context.Context, moduleID uuid.UUID)
 	return issues, nil
 }
 
-func (r *Repository) CountIssuesByModule(ctx context.Context, moduleID uuid.UUID) (int64, error) {
+func (r *Repository) CountIssuesByEpic(ctx context.Context, epicID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM module_issues mi JOIN issues i ON mi.issue_id = i.id
-		 WHERE mi.module_id = $1 AND i.deleted_at IS NULL`, moduleID).Scan(&count)
+		`SELECT COUNT(*) FROM epic_issues mi JOIN issues i ON mi.issue_id = i.id
+		 WHERE mi.epic_id = $1 AND i.deleted_at IS NULL`, epicID).Scan(&count)
 	return count, err
 }
 

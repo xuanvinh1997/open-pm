@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
-import { useModuleStore } from '@/stores/module.store'
-import CreateModuleModal from '@/components/modules/CreateModuleModal.vue'
+import { useEpicStore } from '@/stores/epic.store'
+import CreateEpicModal from '@/components/epics/CreateEpicModal.vue'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
@@ -16,7 +16,7 @@ import { Layers, Plus, Calendar, ArrowRight } from 'lucide-vue-next'
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
-const moduleStore = useModuleStore()
+const epicStore = useEpicStore()
 const toast = useToast()
 
 const slug = route.params.workspaceSlug as string
@@ -27,7 +27,7 @@ const showCreateModal = ref(false)
 
 const breadcrumbs = computed(() => [
   { label: projectStore.currentProject?.name || 'Project', to: `/${slug}/projects` },
-  { label: 'Modules' },
+  { label: 'Epics' },
 ])
 
 const MODULE_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -43,24 +43,24 @@ onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await moduleStore.fetchModules(slug, projectId)
+    await epicStore.fetchEpics(slug, projectId)
   } finally {
     loading.value = false
   }
 })
 
-async function handleCreateModule(data: { name: string; description?: string; start_date?: string; target_date?: string; status?: string }) {
+async function handleCreateEpic(data: { name: string; description?: string; start_date?: string; target_date?: string; status?: string }) {
   try {
-    await moduleStore.createModule(slug, projectId, data as any)
+    await epicStore.createEpic(slug, projectId, data as any)
     showCreateModal.value = false
-    toast.success('Module created')
+    toast.success('Epic created')
   } catch (e) {
-    toast.error(extractErrorMessage(e, 'Failed to create module'))
+    toast.error(extractErrorMessage(e, 'Failed to create epic'))
   }
 }
 
-function handleModuleClick(moduleId: string) {
-  router.push(`/${slug}/projects/${projectId}/modules/${moduleId}`)
+function handleEpicClick(epicId: string) {
+  router.push(`/${slug}/projects/${projectId}/epics/${epicId}`)
 }
 </script>
 
@@ -73,7 +73,7 @@ function handleModuleClick(moduleId: string) {
       </div>
       <PButton variant="primary" size="sm" @click="showCreateModal = true">
         <Plus class="h-4 w-4" />
-        New module
+        New epic
       </PButton>
     </div>
 
@@ -83,27 +83,27 @@ function handleModuleClick(moduleId: string) {
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="moduleStore.modules.length === 0" class="flex-1">
+    <div v-else-if="epicStore.epics.length === 0" class="flex-1">
       <PEmptyState
-        title="No modules"
-        description="Create your first module to organize features."
+        title="No epics"
+        description="Create your first epic to organize features."
         :icon="Layers"
       >
         <PButton variant="primary" @click="showCreateModal = true">
           <Plus class="h-4 w-4" />
-          New module
+          New epic
         </PButton>
       </PEmptyState>
     </div>
 
-    <!-- Modules list -->
+    <!-- Epics list -->
     <div v-else class="flex-1 overflow-y-auto p-4">
       <div class="space-y-2">
         <div
-          v-for="mod in moduleStore.modules"
+          v-for="mod in epicStore.epics"
           :key="mod.id"
           class="flex items-center gap-4 rounded-lg border border-custom-border-200 bg-custom-background-100 p-4 hover:bg-custom-background-90 transition-colors cursor-pointer"
-          @click="handleModuleClick(mod.id)"
+          @click="handleEpicClick(mod.id)"
         >
           <Layers class="h-5 w-5 text-custom-text-300 flex-shrink-0" />
           <div class="flex-1 min-w-0">
@@ -126,6 +126,6 @@ function handleModuleClick(moduleId: string) {
       </div>
     </div>
 
-    <CreateModuleModal v-model:open="showCreateModal" @create="handleCreateModule" />
+    <CreateEpicModal v-model:open="showCreateModal" @create="handleCreateEpic" />
   </div>
 </template>

@@ -105,8 +105,8 @@ type Project struct {
 	CoverImageURL     *string    `json:"cover_image_url,omitempty"`
 	DefaultAssigneeID *uuid.UUID `json:"default_assignee_id,omitempty"`
 	ProjectLeadID     *uuid.UUID `json:"project_lead_id,omitempty"`
-	CycleView         bool       `json:"cycle_view"`
-	ModuleView        bool       `json:"module_view"`
+	SprintView        bool       `json:"sprint_view"`
+	EpicView          bool       `json:"epic_view"`
 	PageView          bool       `json:"page_view"`
 	InboxView         bool       `json:"inbox_view"`
 	SortOrder         float64    `json:"sort_order"`
@@ -284,7 +284,7 @@ type CreateActivityParams struct {
 	ActorID       *uuid.UUID
 }
 
-type Cycle struct {
+type Sprint struct {
 	ID               uuid.UUID       `json:"id"`
 	ProjectID        uuid.UUID       `json:"project_id"`
 	WorkspaceID      uuid.UUID       `json:"workspace_id"`
@@ -300,7 +300,7 @@ type Cycle struct {
 	UpdatedAt        time.Time       `json:"updated_at"`
 }
 
-type Module struct {
+type Epic struct {
 	ID              uuid.UUID  `json:"id"`
 	ProjectID       uuid.UUID  `json:"project_id"`
 	WorkspaceID     uuid.UUID  `json:"workspace_id"`
@@ -499,8 +499,8 @@ type BurndownPoint struct {
 }
 
 type VelocityPoint struct {
-	CycleID        uuid.UUID `json:"cycle_id"`
-	CycleName      string    `json:"cycle_name"`
+	SprintID       uuid.UUID `json:"sprint_id"`
+	SprintName     string    `json:"sprint_name"`
 	CompletedCount int       `json:"completed_count"`
 	TotalCount     int       `json:"total_count"`
 }

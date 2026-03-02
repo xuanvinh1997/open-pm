@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
-import { useCycleStore } from '@/stores/cycle.store'
-import CreateCycleModal from '@/components/cycles/CreateCycleModal.vue'
+import { useSprintStore } from '@/stores/sprint.store'
+import CreateSprintModal from '@/components/sprints/CreateSprintModal.vue'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
@@ -16,7 +16,7 @@ import { Repeat, Plus, Calendar, ArrowRight } from 'lucide-vue-next'
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
-const cycleStore = useCycleStore()
+const sprintStore = useSprintStore()
 const toast = useToast()
 
 const slug = route.params.workspaceSlug as string
@@ -27,38 +27,38 @@ const showCreateModal = ref(false)
 
 const breadcrumbs = computed(() => [
   { label: projectStore.currentProject?.name || 'Project', to: `/${slug}/projects` },
-  { label: 'Cycles' },
+  { label: 'Sprints' },
 ])
 
 onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await cycleStore.fetchCycles(slug, projectId)
+    await sprintStore.fetchSprints(slug, projectId)
   } finally {
     loading.value = false
   }
 })
 
-async function handleCreateCycle(data: { name: string; description?: string; start_date?: string; end_date?: string }) {
+async function handleCreateSprint(data: { name: string; description?: string; start_date?: string; end_date?: string }) {
   try {
-    await cycleStore.createCycle(slug, projectId, data)
+    await sprintStore.createSprint(slug, projectId, data)
     showCreateModal.value = false
-    toast.success('Cycle created')
+    toast.success('Sprint created')
   } catch (e) {
-    toast.error(extractErrorMessage(e, 'Failed to create cycle'))
+    toast.error(extractErrorMessage(e, 'Failed to create sprint'))
   }
 }
 
-function handleCycleClick(cycleId: string) {
-  router.push(`/${slug}/projects/${projectId}/cycles/${cycleId}`)
+function handleSprintClick(sprintId: string) {
+  router.push(`/${slug}/projects/${projectId}/sprints/${sprintId}`)
 }
 
-function getCycleStatus(cycle: typeof cycleStore.cycles[0]) {
-  if (!cycle.start_date || !cycle.end_date) return 'Draft'
+function getSprintStatus(sprint: typeof sprintStore.sprints[0]) {
+  if (!sprint.start_date || !sprint.end_date) return 'Draft'
   const now = new Date()
-  const start = new Date(cycle.start_date)
-  const end = new Date(cycle.end_date)
+  const start = new Date(sprint.start_date)
+  const end = new Date(sprint.end_date)
   if (now < start) return 'Upcoming'
   if (now > end) return 'Completed'
   return 'Active'
@@ -83,7 +83,7 @@ function getStatusColor(status: string) {
       </div>
       <PButton variant="primary" size="sm" @click="showCreateModal = true">
         <Plus class="h-4 w-4" />
-        New cycle
+        New sprint
       </PButton>
     </div>
 
@@ -93,49 +93,49 @@ function getStatusColor(status: string) {
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="cycleStore.cycles.length === 0" class="flex-1">
+    <div v-else-if="sprintStore.sprints.length === 0" class="flex-1">
       <PEmptyState
-        title="No cycles"
-        description="Create your first cycle to start planning sprints."
+        title="No sprints"
+        description="Create your first sprint to start planning sprints."
         :icon="Repeat"
       >
         <PButton variant="primary" @click="showCreateModal = true">
           <Plus class="h-4 w-4" />
-          New cycle
+          New sprint
         </PButton>
       </PEmptyState>
     </div>
 
-    <!-- Cycles list -->
+    <!-- Sprints list -->
     <div v-else class="flex-1 overflow-y-auto p-4">
       <div class="space-y-2">
         <div
-          v-for="cycle in cycleStore.cycles"
-          :key="cycle.id"
+          v-for="sprint in sprintStore.sprints"
+          :key="sprint.id"
           class="flex items-center gap-4 rounded-lg border border-custom-border-200 bg-custom-background-100 p-4 hover:bg-custom-background-90 transition-colors cursor-pointer"
-          @click="handleCycleClick(cycle.id)"
+          @click="handleSprintClick(sprint.id)"
         >
           <Repeat class="h-5 w-5 text-custom-text-300 flex-shrink-0" />
           <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-medium text-custom-text-100 truncate">{{ cycle.name }}</h3>
-            <p v-if="cycle.description" class="mt-0.5 text-xs text-custom-text-300 truncate">{{ cycle.description }}</p>
+            <h3 class="text-sm font-medium text-custom-text-100 truncate">{{ sprint.name }}</h3>
+            <p v-if="sprint.description" class="mt-0.5 text-xs text-custom-text-300 truncate">{{ sprint.description }}</p>
           </div>
-          <div v-if="cycle.start_date && cycle.end_date" class="flex items-center gap-1.5 text-xs text-custom-text-300 flex-shrink-0">
+          <div v-if="sprint.start_date && sprint.end_date" class="flex items-center gap-1.5 text-xs text-custom-text-300 flex-shrink-0">
             <Calendar class="h-3.5 w-3.5" />
-            <span>{{ formatDate(cycle.start_date) }}</span>
+            <span>{{ formatDate(sprint.start_date) }}</span>
             <ArrowRight class="h-3 w-3" />
-            <span>{{ formatDate(cycle.end_date) }}</span>
+            <span>{{ formatDate(sprint.end_date) }}</span>
           </div>
           <span
             class="rounded-full px-2 py-0.5 text-2xs font-medium flex-shrink-0"
-            :class="getStatusColor(getCycleStatus(cycle))"
+            :class="getStatusColor(getSprintStatus(sprint))"
           >
-            {{ getCycleStatus(cycle) }}
+            {{ getSprintStatus(sprint) }}
           </span>
         </div>
       </div>
     </div>
 
-    <CreateCycleModal v-model:open="showCreateModal" @create="handleCreateCycle" />
+    <CreateSprintModal v-model:open="showCreateModal" @create="handleCreateSprint" />
   </div>
 </template>

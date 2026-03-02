@@ -58,14 +58,14 @@ export const issueApi = {
     )
   },
 
-  createComment(slug: string, projectId: string, issueId: string, data: { comment_html: string }) {
+  createComment(slug: string, projectId: string, issueId: string, data: { comment_html: string; comment_json?: Record<string, unknown>; comment_stripped?: string }) {
     return apiClient.post<IssueComment>(
       `${base(slug, projectId)}/issues/${issueId}/comments`,
       data,
     )
   },
 
-  updateComment(slug: string, projectId: string, issueId: string, commentId: string, data: { comment_html: string }) {
+  updateComment(slug: string, projectId: string, issueId: string, commentId: string, data: { comment_html: string; comment_json?: Record<string, unknown>; comment_stripped?: string }) {
     return apiClient.put<IssueComment>(
       `${base(slug, projectId)}/issues/${issueId}/comments/${commentId}`,
       data,

@@ -9,7 +9,7 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-var validModuleStatuses = map[string]bool{
+var validEpicStatuses = map[string]bool{
 	"backlog":     true,
 	"planned":     true,
 	"in-progress": true,
@@ -18,7 +18,7 @@ var validModuleStatuses = map[string]bool{
 	"cancelled":   true,
 }
 
-type CreateModuleRequest struct {
+type CreateEpicRequest struct {
 	Name        string     `json:"name" validate:"required,min=1,max=255"`
 	Description string     `json:"description,omitempty"`
 	StartDate   string     `json:"start_date,omitempty"`
@@ -27,7 +27,7 @@ type CreateModuleRequest struct {
 	LeadID      *uuid.UUID `json:"lead_id,omitempty"`
 }
 
-type UpdateModuleRequest struct {
+type UpdateEpicRequest struct {
 	Name        *string    `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
 	Description *string    `json:"description,omitempty"`
 	StartDate   *string    `json:"start_date,omitempty"`
@@ -37,17 +37,17 @@ type UpdateModuleRequest struct {
 	SortOrder   *float64   `json:"sort_order,omitempty"`
 }
 
-type ModuleIssueRequest struct {
+type EpicIssueRequest struct {
 	IssueID uuid.UUID `json:"issue_id" validate:"required"`
 }
 
-// ListModules handles GET .../projects/{projectID}/modules
-func (a *API) ListModules(w http.ResponseWriter, r *http.Request) error {
+// ListEpics handles GET .../projects/{projectID}/modules
+func (a *API) ListEpics(w http.ResponseWriter, r *http.Request) error {
 	projectID := getProjectID(r.Context())
 
-	modules, err := a.queries.ListModulesByProject(r.Context(), projectID)
+	modules, err := a.queries.ListEpicsByProject(r.Context(), projectID)
 	if err != nil {
-		return internalServerError("failed to list modules")
+		return internalServerError("failed to list epics")
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
@@ -55,14 +55,14 @@ func (a *API) ListModules(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-// CreateModule handles POST .../projects/{projectID}/modules
-func (a *API) CreateModule(w http.ResponseWriter, r *http.Request) error {
+// CreateEpic handles POST .../projects/{projectID}/modules
+func (a *API) CreateEpic(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	userID := getUserID(ctx)
 	projectID := getProjectID(ctx)
 	workspaceID := getWorkspaceID(ctx)
 
-	var req CreateModuleRequest
+	var req CreateEpicRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -72,7 +72,7 @@ func (a *API) CreateModule(w http.ResponseWriter, r *http.Request) error {
 
 	status := "backlog"
 	if req.Status != "" {
-		if !validModuleStatuses[req.Status] {
+		if !validEpicStatuses[req.Status] {
 			return badRequestError("invalid status")
 		}
 		status = req.Status
@@ -97,51 +97,51 @@ func (a *API) CreateModule(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("target_date must not be before start_date")
 	}
 
-	module, err := a.queries.CreateModule(ctx, projectID, workspaceID, req.Name, req.Description, startDate, targetDate, status, req.LeadID, &userID)
+	module, err := a.queries.CreateEpic(ctx, projectID, workspaceID, req.Name, req.Description, startDate, targetDate, status, req.LeadID, &userID)
 	if err != nil {
-		return internalServerError("failed to create module")
+		return internalServerError("failed to create epic")
 	}
 
 	return sendJSON(w, http.StatusCreated, module)
 }
 
-// GetModule handles GET .../modules/{moduleID}
-func (a *API) GetModule(w http.ResponseWriter, r *http.Request) error {
-	moduleID, err := uuid.FromString(chi.URLParam(r, "moduleID"))
+// GetEpic handles GET .../modules/{epicID}
+func (a *API) GetEpic(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
-		return badRequestError("invalid module ID")
+		return badRequestError("invalid epic ID")
 	}
 
-	module, err := a.queries.GetModuleByID(r.Context(), moduleID)
+	module, err := a.queries.GetEpicByID(r.Context(), epicID)
 	if err != nil {
-		return notFoundError("module not found")
+		return notFoundError("epic not found")
 	}
 
-	issues, err := a.queries.ListIssuesByModule(r.Context(), moduleID)
+	issues, err := a.queries.ListIssuesByEpic(r.Context(), epicID)
 	if err != nil {
-		return internalServerError("failed to list module issues")
+		return internalServerError("failed to list epic issues")
 	}
 
-	totalIssues, err := a.queries.CountIssuesByModule(r.Context(), moduleID)
+	totalIssues, err := a.queries.CountIssuesByEpic(r.Context(), epicID)
 	if err != nil {
 		totalIssues = int64(len(issues))
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
-		"module":       module,
+		"epic":       module,
 		"issues":       issues,
 		"total_issues": totalIssues,
 	})
 }
 
-// UpdateModule handles PUT .../modules/{moduleID}
-func (a *API) UpdateModule(w http.ResponseWriter, r *http.Request) error {
-	moduleID, err := uuid.FromString(chi.URLParam(r, "moduleID"))
+// UpdateEpic handles PUT .../modules/{epicID}
+func (a *API) UpdateEpic(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
-		return badRequestError("invalid module ID")
+		return badRequestError("invalid epic ID")
 	}
 
-	var req UpdateModuleRequest
+	var req UpdateEpicRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -149,7 +149,7 @@ func (a *API) UpdateModule(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	if req.Status != nil && !validModuleStatuses[*req.Status] {
+	if req.Status != nil && !validEpicStatuses[*req.Status] {
 		return badRequestError("invalid status")
 	}
 
@@ -172,42 +172,42 @@ func (a *API) UpdateModule(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("target_date must not be before start_date")
 	}
 
-	module, err := a.queries.UpdateModule(r.Context(), moduleID, req.Name, req.Description, startDate, targetDate, req.Status, req.LeadID, req.SortOrder)
+	module, err := a.queries.UpdateEpic(r.Context(), epicID, req.Name, req.Description, startDate, targetDate, req.Status, req.LeadID, req.SortOrder)
 	if err != nil {
-		return internalServerError("failed to update module")
+		return internalServerError("failed to update epic")
 	}
 
 	return sendJSON(w, http.StatusOK, module)
 }
 
-// DeleteModule handles DELETE .../modules/{moduleID}
-func (a *API) DeleteModule(w http.ResponseWriter, r *http.Request) error {
+// DeleteEpic handles DELETE .../modules/{epicID}
+func (a *API) DeleteEpic(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
-	moduleID, err := uuid.FromString(chi.URLParam(r, "moduleID"))
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
-		return badRequestError("invalid module ID")
+		return badRequestError("invalid epic ID")
 	}
 
 	if getProjectRole(ctx) < RoleAdmin {
 		return forbiddenError("only an admin can delete modules")
 	}
 
-	if err := a.queries.DeleteModule(ctx, moduleID); err != nil {
-		return internalServerError("failed to delete module")
+	if err := a.queries.DeleteEpic(ctx, epicID); err != nil {
+		return internalServerError("failed to delete epic")
 	}
 
 	return sendEmpty(w, http.StatusNoContent)
 }
 
-// AddIssueToModule handles POST .../modules/{moduleID}/issues
-func (a *API) AddIssueToModule(w http.ResponseWriter, r *http.Request) error {
-	moduleID, err := uuid.FromString(chi.URLParam(r, "moduleID"))
+// AddIssueToEpic handles POST .../modules/{epicID}/issues
+func (a *API) AddIssueToEpic(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
-		return badRequestError("invalid module ID")
+		return badRequestError("invalid epic ID")
 	}
 
-	var req ModuleIssueRequest
+	var req EpicIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -215,18 +215,18 @@ func (a *API) AddIssueToModule(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	if err := a.queries.AddIssueToModule(r.Context(), moduleID, req.IssueID); err != nil {
-		return internalServerError("failed to add issue to module")
+	if err := a.queries.AddIssueToEpic(r.Context(), epicID, req.IssueID); err != nil {
+		return internalServerError("failed to add issue to epic")
 	}
 
 	return sendEmpty(w, http.StatusCreated)
 }
 
-// RemoveIssueFromModule handles DELETE .../modules/{moduleID}/issues/{issueID}
-func (a *API) RemoveIssueFromModule(w http.ResponseWriter, r *http.Request) error {
-	moduleID, err := uuid.FromString(chi.URLParam(r, "moduleID"))
+// RemoveIssueFromEpic handles DELETE .../modules/{epicID}/issues/{issueID}
+func (a *API) RemoveIssueFromEpic(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
-		return badRequestError("invalid module ID")
+		return badRequestError("invalid epic ID")
 	}
 
 	issueID, err := uuid.FromString(chi.URLParam(r, "issueID"))
@@ -234,8 +234,8 @@ func (a *API) RemoveIssueFromModule(w http.ResponseWriter, r *http.Request) erro
 		return badRequestError("invalid issue ID")
 	}
 
-	if err := a.queries.RemoveIssueFromModule(r.Context(), moduleID, issueID); err != nil {
-		return internalServerError("failed to remove issue from module")
+	if err := a.queries.RemoveIssueFromEpic(r.Context(), epicID, issueID); err != nil {
+		return internalServerError("failed to remove issue from epic")
 	}
 
 	return sendEmpty(w, http.StatusNoContent)

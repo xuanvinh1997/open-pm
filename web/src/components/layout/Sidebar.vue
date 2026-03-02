@@ -231,22 +231,22 @@ const userName = computed(() => {
               Reports
             </router-link>
             <router-link
-              v-if="project.cycle_view"
-              :to="`/${slug}/projects/${project.id}/cycles`"
+              v-if="project.sprint_view"
+              :to="`/${slug}/projects/${project.id}/sprints`"
               class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
-              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/cycles`) }"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/sprints`) }"
             >
               <Repeat class="h-3.5 w-3.5" />
-              Cycles
+              Sprints
             </router-link>
             <router-link
-              v-if="project.module_view"
-              :to="`/${slug}/projects/${project.id}/modules`"
+              v-if="project.epic_view"
+              :to="`/${slug}/projects/${project.id}/epics`"
               class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
-              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/modules`) }"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path.startsWith(`/${slug}/projects/${project.id}/epics`) }"
             >
               <Layers class="h-3.5 w-3.5" />
-              Modules
+              Epics
             </router-link>
             <router-link
               v-if="project.page_view"

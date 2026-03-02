@@ -9,14 +9,14 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-type CreateCycleRequest struct {
+type CreateSprintRequest struct {
 	Name        string `json:"name" validate:"required,min=1,max=255"`
 	Description string `json:"description,omitempty"`
 	StartDate   string `json:"start_date,omitempty"`
 	EndDate     string `json:"end_date,omitempty"`
 }
 
-type UpdateCycleRequest struct {
+type UpdateSprintRequest struct {
 	Name        *string  `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
 	Description *string  `json:"description,omitempty"`
 	StartDate   *string  `json:"start_date,omitempty"`
@@ -24,17 +24,17 @@ type UpdateCycleRequest struct {
 	SortOrder   *float64 `json:"sort_order,omitempty"`
 }
 
-type CycleIssueRequest struct {
+type SprintIssueRequest struct {
 	IssueID uuid.UUID `json:"issue_id" validate:"required"`
 }
 
-// ListCycles handles GET .../projects/{projectID}/cycles
-func (a *API) ListCycles(w http.ResponseWriter, r *http.Request) error {
+// ListSprints handles GET .../projects/{projectID}/cycles
+func (a *API) ListSprints(w http.ResponseWriter, r *http.Request) error {
 	projectID := getProjectID(r.Context())
 
-	cycles, err := a.queries.ListCyclesByProject(r.Context(), projectID)
+	cycles, err := a.queries.ListSprintsByProject(r.Context(), projectID)
 	if err != nil {
-		return internalServerError("failed to list cycles")
+		return internalServerError("failed to list sprints")
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
@@ -42,14 +42,14 @@ func (a *API) ListCycles(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-// CreateCycle handles POST .../projects/{projectID}/cycles
-func (a *API) CreateCycle(w http.ResponseWriter, r *http.Request) error {
+// CreateSprint handles POST .../projects/{projectID}/cycles
+func (a *API) CreateSprint(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	userID := getUserID(ctx)
 	projectID := getProjectID(ctx)
 	workspaceID := getWorkspaceID(ctx)
 
-	var req CreateCycleRequest
+	var req CreateSprintRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -76,51 +76,51 @@ func (a *API) CreateCycle(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("end_date must not be before start_date")
 	}
 
-	cycle, err := a.queries.CreateCycle(ctx, projectID, workspaceID, req.Name, req.Description, startDate, endDate, userID)
+	cycle, err := a.queries.CreateSprint(ctx, projectID, workspaceID, req.Name, req.Description, startDate, endDate, userID)
 	if err != nil {
-		return internalServerError("failed to create cycle")
+		return internalServerError("failed to create sprint")
 	}
 
 	return sendJSON(w, http.StatusCreated, cycle)
 }
 
-// GetCycle handles GET .../cycles/{cycleID}
-func (a *API) GetCycle(w http.ResponseWriter, r *http.Request) error {
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+// GetSprint handles GET .../cycles/{sprintID}
+func (a *API) GetSprint(w http.ResponseWriter, r *http.Request) error {
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
-		return badRequestError("invalid cycle ID")
+		return badRequestError("invalid sprint ID")
 	}
 
-	cycle, err := a.queries.GetCycleByID(r.Context(), cycleID)
+	cycle, err := a.queries.GetSprintByID(r.Context(), sprintID)
 	if err != nil {
-		return notFoundError("cycle not found")
+		return notFoundError("sprint not found")
 	}
 
-	issues, err := a.queries.ListIssuesByCycle(r.Context(), cycleID)
+	issues, err := a.queries.ListIssuesBySprint(r.Context(), sprintID)
 	if err != nil {
 		return internalServerError("failed to list cycle issues")
 	}
 
-	totalIssues, err := a.queries.CountIssuesByCycle(r.Context(), cycleID)
+	totalIssues, err := a.queries.CountIssuesBySprint(r.Context(), sprintID)
 	if err != nil {
 		totalIssues = int64(len(issues))
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
-		"cycle":       cycle,
+		"sprint":       cycle,
 		"issues":      issues,
 		"total_issues": totalIssues,
 	})
 }
 
-// UpdateCycle handles PUT .../cycles/{cycleID}
-func (a *API) UpdateCycle(w http.ResponseWriter, r *http.Request) error {
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+// UpdateSprint handles PUT .../cycles/{sprintID}
+func (a *API) UpdateSprint(w http.ResponseWriter, r *http.Request) error {
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
-		return badRequestError("invalid cycle ID")
+		return badRequestError("invalid sprint ID")
 	}
 
-	var req UpdateCycleRequest
+	var req UpdateSprintRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -147,47 +147,47 @@ func (a *API) UpdateCycle(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("end_date must not be before start_date")
 	}
 
-	cycle, err := a.queries.UpdateCycle(r.Context(), cycleID, req.Name, req.Description, startDate, endDate, req.SortOrder)
+	cycle, err := a.queries.UpdateSprint(r.Context(), sprintID, req.Name, req.Description, startDate, endDate, req.SortOrder)
 	if err != nil {
-		return internalServerError("failed to update cycle")
+		return internalServerError("failed to update sprint")
 	}
 
 	return sendJSON(w, http.StatusOK, cycle)
 }
 
-// DeleteCycle handles DELETE .../cycles/{cycleID}
-func (a *API) DeleteCycle(w http.ResponseWriter, r *http.Request) error {
+// DeleteSprint handles DELETE .../cycles/{sprintID}
+func (a *API) DeleteSprint(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
-		return badRequestError("invalid cycle ID")
+		return badRequestError("invalid sprint ID")
 	}
 
 	// Check ownership: only admin or cycle owner can delete
-	cycle, err := a.queries.GetCycleByID(ctx, cycleID)
+	cycle, err := a.queries.GetSprintByID(ctx, sprintID)
 	if err != nil {
-		return notFoundError("cycle not found")
+		return notFoundError("sprint not found")
 	}
 	if getProjectRole(ctx) < RoleAdmin && cycle.OwnedBy != getUserID(ctx) {
 		return forbiddenError("only the owner or an admin can delete this cycle")
 	}
 
-	if err := a.queries.DeleteCycle(ctx, cycleID); err != nil {
-		return internalServerError("failed to delete cycle")
+	if err := a.queries.DeleteSprint(ctx, sprintID); err != nil {
+		return internalServerError("failed to delete sprint")
 	}
 
 	return sendEmpty(w, http.StatusNoContent)
 }
 
-// AddIssueToCycle handles POST .../cycles/{cycleID}/issues
-func (a *API) AddIssueToCycle(w http.ResponseWriter, r *http.Request) error {
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+// AddIssueToSprint handles POST .../cycles/{sprintID}/issues
+func (a *API) AddIssueToSprint(w http.ResponseWriter, r *http.Request) error {
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
-		return badRequestError("invalid cycle ID")
+		return badRequestError("invalid sprint ID")
 	}
 
-	var req CycleIssueRequest
+	var req SprintIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return badRequestError("invalid request body")
 	}
@@ -195,18 +195,18 @@ func (a *API) AddIssueToCycle(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	if err := a.queries.AddIssueToCycle(r.Context(), cycleID, req.IssueID); err != nil {
+	if err := a.queries.AddIssueToSprint(r.Context(), sprintID, req.IssueID); err != nil {
 		return internalServerError("failed to add issue to cycle")
 	}
 
 	return sendEmpty(w, http.StatusCreated)
 }
 
-// RemoveIssueFromCycle handles DELETE .../cycles/{cycleID}/issues/{issueID}
-func (a *API) RemoveIssueFromCycle(w http.ResponseWriter, r *http.Request) error {
-	cycleID, err := uuid.FromString(chi.URLParam(r, "cycleID"))
+// RemoveIssueFromSprint handles DELETE .../cycles/{sprintID}/issues/{issueID}
+func (a *API) RemoveIssueFromSprint(w http.ResponseWriter, r *http.Request) error {
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
-		return badRequestError("invalid cycle ID")
+		return badRequestError("invalid sprint ID")
 	}
 
 	issueID, err := uuid.FromString(chi.URLParam(r, "issueID"))
@@ -214,7 +214,7 @@ func (a *API) RemoveIssueFromCycle(w http.ResponseWriter, r *http.Request) error
 		return badRequestError("invalid issue ID")
 	}
 
-	if err := a.queries.RemoveIssueFromCycle(r.Context(), cycleID, issueID); err != nil {
+	if err := a.queries.RemoveIssueFromSprint(r.Context(), sprintID, issueID); err != nil {
 		return internalServerError("failed to remove issue from cycle")
 	}
 

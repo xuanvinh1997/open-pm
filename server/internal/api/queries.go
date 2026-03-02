@@ -57,7 +57,7 @@ type Queries interface {
 	CreateProject(ctx context.Context, workspaceID uuid.UUID, name, description, identifier string, createdBy, projectLeadID *uuid.UUID) (*Project, error)
 	GetProjectByID(ctx context.Context, id uuid.UUID) (*Project, error)
 	ListProjectsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]*Project, error)
-	UpdateProject(ctx context.Context, id uuid.UUID, name, description, identifier, emoji, coverImageURL *string, defaultAssigneeID, projectLeadID *uuid.UUID, network *int16, cycleView, moduleView, pageView, inboxView *bool) (*Project, error)
+	UpdateProject(ctx context.Context, id uuid.UUID, name, description, identifier, emoji, coverImageURL *string, defaultAssigneeID, projectLeadID *uuid.UUID, network *int16, sprintView, epicView, pageView, inboxView *bool) (*Project, error)
 	DeleteProject(ctx context.Context, id uuid.UUID) error
 
 	// Project Members
@@ -115,27 +115,27 @@ type Queries interface {
 	DeleteWorkLog(ctx context.Context, id uuid.UUID) error
 	SumWorkLogMinutesByIssue(ctx context.Context, issueID uuid.UUID) (int64, error)
 
-	// Cycles
-	CreateCycle(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Cycle, error)
-	GetCycleByID(ctx context.Context, id uuid.UUID) (*Cycle, error)
-	ListCyclesByProject(ctx context.Context, projectID uuid.UUID) ([]*Cycle, error)
-	UpdateCycle(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, sortOrder *float64) (*Cycle, error)
-	DeleteCycle(ctx context.Context, id uuid.UUID) error
-	AddIssueToCycle(ctx context.Context, cycleID, issueID uuid.UUID) error
-	RemoveIssueFromCycle(ctx context.Context, cycleID, issueID uuid.UUID) error
-	ListIssuesByCycle(ctx context.Context, cycleID uuid.UUID) ([]*Issue, error)
-	CountIssuesByCycle(ctx context.Context, cycleID uuid.UUID) (int64, error)
+	// Sprints
+	CreateSprint(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Sprint, error)
+	GetSprintByID(ctx context.Context, id uuid.UUID) (*Sprint, error)
+	ListSprintsByProject(ctx context.Context, projectID uuid.UUID) ([]*Sprint, error)
+	UpdateSprint(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, sortOrder *float64) (*Sprint, error)
+	DeleteSprint(ctx context.Context, id uuid.UUID) error
+	AddIssueToSprint(ctx context.Context, sprintID, issueID uuid.UUID) error
+	RemoveIssueFromSprint(ctx context.Context, sprintID, issueID uuid.UUID) error
+	ListIssuesBySprint(ctx context.Context, sprintID uuid.UUID) ([]*Issue, error)
+	CountIssuesBySprint(ctx context.Context, sprintID uuid.UUID) (int64, error)
 
-	// Modules
-	CreateModule(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*Module, error)
-	GetModuleByID(ctx context.Context, id uuid.UUID) (*Module, error)
-	ListModulesByProject(ctx context.Context, projectID uuid.UUID) ([]*Module, error)
-	UpdateModule(ctx context.Context, id uuid.UUID, name, description *string, startDate, targetDate *time.Time, status *string, leadID *uuid.UUID, sortOrder *float64) (*Module, error)
-	DeleteModule(ctx context.Context, id uuid.UUID) error
-	AddIssueToModule(ctx context.Context, moduleID, issueID uuid.UUID) error
-	RemoveIssueFromModule(ctx context.Context, moduleID, issueID uuid.UUID) error
-	ListIssuesByModule(ctx context.Context, moduleID uuid.UUID) ([]*Issue, error)
-	CountIssuesByModule(ctx context.Context, moduleID uuid.UUID) (int64, error)
+	// Epics
+	CreateEpic(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*Epic, error)
+	GetEpicByID(ctx context.Context, id uuid.UUID) (*Epic, error)
+	ListEpicsByProject(ctx context.Context, projectID uuid.UUID) ([]*Epic, error)
+	UpdateEpic(ctx context.Context, id uuid.UUID, name, description *string, startDate, targetDate *time.Time, status *string, leadID *uuid.UUID, sortOrder *float64) (*Epic, error)
+	DeleteEpic(ctx context.Context, id uuid.UUID) error
+	AddIssueToEpic(ctx context.Context, epicID, issueID uuid.UUID) error
+	RemoveIssueFromEpic(ctx context.Context, epicID, issueID uuid.UUID) error
+	ListIssuesByEpic(ctx context.Context, epicID uuid.UUID) ([]*Issue, error)
+	CountIssuesByEpic(ctx context.Context, epicID uuid.UUID) (int64, error)
 
 	// Pages
 	CreatePage(ctx context.Context, projectID *uuid.UUID, workspaceID uuid.UUID, name, descHTML string, descJSON []byte, descStripped string, ownedBy uuid.UUID, parentID *uuid.UUID) (*Page, error)
@@ -190,11 +190,11 @@ type Queries interface {
 	ListBlockedIssueIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error)
 	ListUnestimatedIssues(ctx context.Context, projectID uuid.UUID) ([]*Issue, error)
 
-	// Reports - Cycles
-	ListCycleIssueIDs(ctx context.Context, cycleID uuid.UUID) ([]uuid.UUID, error)
-	CountCycleIssuesByState(ctx context.Context, cycleID uuid.UUID) ([]*IssuesByStateReport, error)
-	CountCompletedCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error)
-	CountTotalCycleIssues(ctx context.Context, cycleID uuid.UUID) (int64, error)
+	// Reports - Sprints
+	ListSprintIssueIDs(ctx context.Context, sprintID uuid.UUID) ([]uuid.UUID, error)
+	CountSprintIssuesByState(ctx context.Context, sprintID uuid.UUID) ([]*IssuesByStateReport, error)
+	CountCompletedSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
+	CountTotalSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
 
 	// Chat Messages
 	CreateChatMessage(ctx context.Context, projectID, workspaceID, userID uuid.UUID, role, content string) (*ChatMessage, error)

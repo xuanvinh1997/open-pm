@@ -2,18 +2,18 @@ import apiClient from './client'
 import type {
   IssueAnalyticsReport,
   WorkLogReport,
-  CycleReportData,
+  SprintReportData,
   VelocityPoint,
   ProjectHealthReport,
-  Cycle,
+  Sprint,
 } from '@/types/report.types'
 
 const base = (slug: string, projectId: string) =>
   `/api/v1/workspaces/${slug}/projects/${projectId}`
 
 export const reportApi = {
-  listCycles(slug: string, projectId: string) {
-    return apiClient.get<{ results: Cycle[] }>(`${base(slug, projectId)}/cycles`)
+  listSprints(slug: string, projectId: string) {
+    return apiClient.get<{ results: Sprint[] }>(`${base(slug, projectId)}/sprints`)
   },
 
   getIssueAnalytics(slug: string, projectId: string) {
@@ -28,8 +28,8 @@ export const reportApi = {
     return apiClient.get<WorkLogReport>(`${base(slug, projectId)}/reports/work-logs${qs ? '?' + qs : ''}`)
   },
 
-  getCycleReport(slug: string, projectId: string, cycleId: string) {
-    return apiClient.get<CycleReportData>(`${base(slug, projectId)}/reports/cycles/${cycleId}`)
+  getSprintReport(slug: string, projectId: string, sprintId: string) {
+    return apiClient.get<SprintReportData>(`${base(slug, projectId)}/reports/sprints/${sprintId}`)
   },
 
   getVelocity(slug: string, projectId: string) {

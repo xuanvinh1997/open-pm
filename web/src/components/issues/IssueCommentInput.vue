@@ -1,37 +1,44 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import PTextarea from '@/components/ui/PTextarea.vue'
+import { RichTextEditor } from '@/components/editor'
 import PButton from '@/components/ui/PButton.vue'
 
 const emit = defineEmits<{
-  submit: [html: string]
+  submit: [html: string, json?: Record<string, unknown>, stripped?: string]
 }>()
 
-const comment = ref('')
-const loading = ref(false)
+const html = ref('')
+const json = ref<Record<string, unknown>>({})
+const stripped = ref('')
+const editorKey = ref(0)
 
 function handleSubmit() {
-  if (!comment.value.trim()) return
-  loading.value = true
-  emit('submit', comment.value)
-  comment.value = ''
-  loading.value = false
+  if (!stripped.value.trim()) return
+  emit('submit', html.value, json.value, stripped.value)
+  html.value = ''
+  json.value = {}
+  stripped.value = ''
+  editorKey.value++
 }
 </script>
 
 <template>
   <div class="border-t border-custom-border-200 pt-4">
-    <PTextarea
-      v-model="comment"
+    <RichTextEditor
+      :key="editorKey"
+      v-model="html"
+      toolbar="compact"
       placeholder="Write a comment..."
-      :rows="2"
+      min-height="60px"
+      @update:json="(v) => json = v"
+      @update:stripped="(v) => stripped = v"
+      @submit="handleSubmit"
     />
     <div class="mt-2 flex justify-end">
       <PButton
         variant="primary"
         size="sm"
-        :loading="loading"
-        :disabled="!comment.trim()"
+        :disabled="!stripped.trim()"
         @click="handleSubmit"
       >
         Comment

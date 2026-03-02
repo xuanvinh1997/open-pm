@@ -346,12 +346,12 @@ func (r *Repository) CreateProject(ctx context.Context, workspaceID uuid.UUID, n
 		`INSERT INTO projects (workspace_id, name, description, identifier, created_by, project_lead_id)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING id, workspace_id, name, description, identifier, network, emoji, cover_image_url,
-		           default_assignee_id, project_lead_id, cycle_view, module_view, page_view, inbox_view,
+		           default_assignee_id, project_lead_id, sprint_view, epic_view, page_view, inbox_view,
 		           sort_order, archived_at, created_by, created_at, updated_at`,
 		workspaceID, name, description, identifier, createdBy, projectLeadID,
 	).Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Description, &p.Identifier, &p.Network,
 		&p.Emoji, &p.CoverImageURL, &p.DefaultAssigneeID, &p.ProjectLeadID,
-		&p.CycleView, &p.ModuleView, &p.PageView, &p.InboxView,
+		&p.SprintView, &p.EpicView, &p.PageView, &p.InboxView,
 		&p.SortOrder, &p.ArchivedAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	return &p, err
 }
@@ -360,12 +360,12 @@ func (r *Repository) GetProjectByID(ctx context.Context, id uuid.UUID) (*api.Pro
 	var p api.Project
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, workspace_id, name, description, identifier, network, emoji, cover_image_url,
-		        default_assignee_id, project_lead_id, cycle_view, module_view, page_view, inbox_view,
+		        default_assignee_id, project_lead_id, sprint_view, epic_view, page_view, inbox_view,
 		        sort_order, archived_at, created_by, created_at, updated_at
 		 FROM projects WHERE id = $1 AND deleted_at IS NULL`, id,
 	).Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Description, &p.Identifier, &p.Network,
 		&p.Emoji, &p.CoverImageURL, &p.DefaultAssigneeID, &p.ProjectLeadID,
-		&p.CycleView, &p.ModuleView, &p.PageView, &p.InboxView,
+		&p.SprintView, &p.EpicView, &p.PageView, &p.InboxView,
 		&p.SortOrder, &p.ArchivedAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	return &p, err
 }
@@ -373,7 +373,7 @@ func (r *Repository) GetProjectByID(ctx context.Context, id uuid.UUID) (*api.Pro
 func (r *Repository) ListProjectsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]*api.Project, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, workspace_id, name, description, identifier, network, emoji, cover_image_url,
-		        default_assignee_id, project_lead_id, cycle_view, module_view, page_view, inbox_view,
+		        default_assignee_id, project_lead_id, sprint_view, epic_view, page_view, inbox_view,
 		        sort_order, archived_at, created_by, created_at, updated_at
 		 FROM projects WHERE workspace_id = $1 AND deleted_at IS NULL
 		 ORDER BY sort_order ASC, created_at DESC`, workspaceID)
@@ -387,7 +387,7 @@ func (r *Repository) ListProjectsByWorkspace(ctx context.Context, workspaceID uu
 		var p api.Project
 		if err := rows.Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Description, &p.Identifier, &p.Network,
 			&p.Emoji, &p.CoverImageURL, &p.DefaultAssigneeID, &p.ProjectLeadID,
-			&p.CycleView, &p.ModuleView, &p.PageView, &p.InboxView,
+			&p.SprintView, &p.EpicView, &p.PageView, &p.InboxView,
 			&p.SortOrder, &p.ArchivedAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -399,7 +399,7 @@ func (r *Repository) ListProjectsByWorkspace(ctx context.Context, workspaceID uu
 	return projects, nil
 }
 
-func (r *Repository) UpdateProject(ctx context.Context, id uuid.UUID, name, description, identifier, emoji, coverImageURL *string, defaultAssigneeID, projectLeadID *uuid.UUID, network *int16, cycleView, moduleView, pageView, inboxView *bool) (*api.Project, error) {
+func (r *Repository) UpdateProject(ctx context.Context, id uuid.UUID, name, description, identifier, emoji, coverImageURL *string, defaultAssigneeID, projectLeadID *uuid.UUID, network *int16, sprintView, epicView, pageView, inboxView *bool) (*api.Project, error) {
 	var p api.Project
 	err := r.pool.QueryRow(ctx,
 		`UPDATE projects SET
@@ -407,18 +407,18 @@ func (r *Repository) UpdateProject(ctx context.Context, id uuid.UUID, name, desc
 			identifier = COALESCE($4, identifier), emoji = COALESCE($5, emoji),
 			cover_image_url = COALESCE($6, cover_image_url),
 			default_assignee_id = $7, project_lead_id = $8,
-			network = COALESCE($9, network), cycle_view = COALESCE($10, cycle_view),
-			module_view = COALESCE($11, module_view), page_view = COALESCE($12, page_view),
+			network = COALESCE($9, network), sprint_view = COALESCE($10, sprint_view),
+			epic_view = COALESCE($11, epic_view), page_view = COALESCE($12, page_view),
 			inbox_view = COALESCE($13, inbox_view)
 		 WHERE id = $1 AND deleted_at IS NULL
 		 RETURNING id, workspace_id, name, description, identifier, network, emoji, cover_image_url,
-		           default_assignee_id, project_lead_id, cycle_view, module_view, page_view, inbox_view,
+		           default_assignee_id, project_lead_id, sprint_view, epic_view, page_view, inbox_view,
 		           sort_order, archived_at, created_by, created_at, updated_at`,
 		id, name, description, identifier, emoji, coverImageURL,
-		defaultAssigneeID, projectLeadID, network, cycleView, moduleView, pageView, inboxView,
+		defaultAssigneeID, projectLeadID, network, sprintView, epicView, pageView, inboxView,
 	).Scan(&p.ID, &p.WorkspaceID, &p.Name, &p.Description, &p.Identifier, &p.Network,
 		&p.Emoji, &p.CoverImageURL, &p.DefaultAssigneeID, &p.ProjectLeadID,
-		&p.CycleView, &p.ModuleView, &p.PageView, &p.InboxView,
+		&p.SprintView, &p.EpicView, &p.PageView, &p.InboxView,
 		&p.SortOrder, &p.ArchivedAt, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	return &p, err
 }
