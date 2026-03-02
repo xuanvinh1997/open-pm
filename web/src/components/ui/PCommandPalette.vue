@@ -4,7 +4,10 @@ import { useRouter } from 'vue-router'
 import { useCommandPalette } from '@/composables/useCommandPalette'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { useProjectStore } from '@/stores/project.store'
-import { Search, Home, Briefcase, Settings, FolderKanban } from 'lucide-vue-next'
+import { searchApi } from '@/api/search.api'
+import type { Issue } from '@/types/issue.types'
+import type { Page } from '@/types/page.types'
+import { Search, Home, Briefcase, Settings, FolderKanban, LayoutList, FileText } from 'lucide-vue-next'
 
 const router = useRouter()
 const { isOpen, close } = useCommandPalette()
@@ -13,6 +16,8 @@ const projectStore = useProjectStore()
 
 const query = ref('')
 const selectedIndex = ref(0)
+const searchResults = ref<{ issues: Issue[]; pages: Page[] }>({ issues: [], pages: [] })
+const isSearching = ref(false)
 
 interface CommandItem {
   id: string
@@ -22,7 +27,7 @@ interface CommandItem {
   action: () => void
 }
 
-const items = computed<CommandItem[]>(() => {
+const staticItems = computed<CommandItem[]>(() => {
   const slug = workspaceStore.currentWorkspace?.slug
   if (!slug) return []
 
@@ -42,10 +47,42 @@ const items = computed<CommandItem[]>(() => {
     })
   }
 
-  if (!query.value) return all
+  return all
+})
+
+const items = computed<CommandItem[]>(() => {
+  const slug = workspaceStore.currentWorkspace?.slug
+  if (!slug) return []
+
+  // If we have search results from the API, show those
+  if (query.value.length >= 3 && (searchResults.value.issues.length > 0 || searchResults.value.pages.length > 0)) {
+    const results: CommandItem[] = []
+    for (const issue of searchResults.value.issues) {
+      results.push({
+        id: `issue-${issue.id}`,
+        label: issue.name,
+        description: issue.priority,
+        icon: LayoutList,
+        action: () => router.push(`/${slug}/projects/${issue.project_id}/issues/${issue.id}`),
+      })
+    }
+    for (const page of searchResults.value.pages) {
+      results.push({
+        id: `page-${page.id}`,
+        label: page.name,
+        description: 'Page',
+        icon: FileText,
+        action: () => router.push(`/${slug}/projects/${page.project_id}/pages/${page.id}`),
+      })
+    }
+    return results
+  }
+
+  // Otherwise filter static items
+  if (!query.value) return staticItems.value
 
   const q = query.value.toLowerCase()
-  return all.filter(
+  return staticItems.value.filter(
     (item) =>
       item.label.toLowerCase().includes(q) ||
       item.description?.toLowerCase().includes(q),
@@ -83,8 +120,30 @@ function handleBackdropClick(e: MouseEvent) {
   }
 }
 
-watch(query, () => {
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+watch(query, (val) => {
   selectedIndex.value = 0
+
+  // Debounced API search for 3+ character queries
+  if (searchTimeout) clearTimeout(searchTimeout)
+  if (val.length >= 3) {
+    isSearching.value = true
+    searchTimeout = setTimeout(async () => {
+      const slug = workspaceStore.currentWorkspace?.slug
+      if (!slug) return
+      try {
+        const { data } = await searchApi.search(slug, val)
+        searchResults.value = data
+      } catch {
+        searchResults.value = { issues: [], pages: [] }
+      } finally {
+        isSearching.value = false
+      }
+    }, 300)
+  } else {
+    searchResults.value = { issues: [], pages: [] }
+    isSearching.value = false
+  }
 })
 
 watch(isOpen, (val) => {

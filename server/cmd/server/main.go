@@ -16,9 +16,11 @@ import (
 	"github.com/open-pm/open-pm/server/internal/api"
 	"github.com/open-pm/open-pm/server/internal/config"
 	"github.com/open-pm/open-pm/server/internal/db"
+	"github.com/open-pm/open-pm/server/internal/email"
 	"github.com/open-pm/open-pm/server/internal/repository"
 	"github.com/open-pm/open-pm/server/internal/seed"
 	"github.com/open-pm/open-pm/server/internal/service"
+	"github.com/open-pm/open-pm/server/internal/storage"
 )
 
 func main() {
@@ -58,6 +60,24 @@ func main() {
 		apiOpts = append(apiOpts, api.WithLLM(llmProvider))
 		log.Info().Str("provider", cfg.LLM.Provider).Str("model", cfg.LLM.Model).Msg("LLM chat enabled")
 	}
+	store, err := storage.New(cfg.Storage)
+	if err != nil {
+		log.Warn().Err(err).Msg("file storage unavailable — uploads will be disabled")
+	} else {
+		apiOpts = append(apiOpts, api.WithStorage(store))
+		log.Info().Msg("file storage connected")
+	}
+
+	// Initialize email mailer
+	mailer, err := email.New(cfg.SMTP)
+	if err != nil {
+		log.Warn().Err(err).Msg("email mailer unavailable — email notifications will be disabled")
+	} else {
+		apiOpts = append(apiOpts, api.WithMailer(mailer))
+		log.Info().Msg("email mailer initialized")
+	}
+
+	// Create API
 	a := api.NewAPI(cfg, repo, apiOpts...)
 
 	// Start server

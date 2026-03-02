@@ -84,9 +84,9 @@ type Queries interface {
 	// Issues
 	CreateIssue(ctx context.Context, params CreateIssueParams) (*Issue, error)
 	GetIssueByID(ctx context.Context, id uuid.UUID) (*Issue, error)
-	ListIssuesByProject(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*Issue, error)
+	ListIssuesByProject(ctx context.Context, projectID uuid.UUID, filters IssueFilters, limit, offset int) ([]*Issue, error)
 	ListSubIssues(ctx context.Context, parentID uuid.UUID) ([]*Issue, error)
-	CountIssuesByProject(ctx context.Context, projectID uuid.UUID) (int64, error)
+	CountIssuesByProject(ctx context.Context, projectID uuid.UUID, filters IssueFilters) (int64, error)
 	UpdateIssue(ctx context.Context, id uuid.UUID, params UpdateIssueParams) (*Issue, error)
 	DeleteIssue(ctx context.Context, id uuid.UUID) error
 	AddIssueAssignee(ctx context.Context, issueID, assigneeID uuid.UUID) error
@@ -123,6 +123,8 @@ type Queries interface {
 	DeleteCycle(ctx context.Context, id uuid.UUID) error
 	AddIssueToCycle(ctx context.Context, cycleID, issueID uuid.UUID) error
 	RemoveIssueFromCycle(ctx context.Context, cycleID, issueID uuid.UUID) error
+	ListIssuesByCycle(ctx context.Context, cycleID uuid.UUID) ([]*Issue, error)
+	CountIssuesByCycle(ctx context.Context, cycleID uuid.UUID) (int64, error)
 
 	// Modules
 	CreateModule(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*Module, error)
@@ -132,6 +134,8 @@ type Queries interface {
 	DeleteModule(ctx context.Context, id uuid.UUID) error
 	AddIssueToModule(ctx context.Context, moduleID, issueID uuid.UUID) error
 	RemoveIssueFromModule(ctx context.Context, moduleID, issueID uuid.UUID) error
+	ListIssuesByModule(ctx context.Context, moduleID uuid.UUID) ([]*Issue, error)
+	CountIssuesByModule(ctx context.Context, moduleID uuid.UUID) (int64, error)
 
 	// Pages
 	CreatePage(ctx context.Context, projectID *uuid.UUID, workspaceID uuid.UUID, name, descHTML string, descJSON []byte, descStripped string, ownedBy uuid.UUID, parentID *uuid.UUID) (*Page, error)
@@ -196,4 +200,13 @@ type Queries interface {
 	CreateChatMessage(ctx context.Context, projectID, workspaceID, userID uuid.UUID, role, content string) (*ChatMessage, error)
 	ListChatMessages(ctx context.Context, projectID, userID uuid.UUID, limit int) ([]*ChatMessage, error)
 	DeleteChatHistory(ctx context.Context, projectID, userID uuid.UUID) error
+	// Search
+	SearchIssues(ctx context.Context, workspaceID uuid.UUID, query string, limit int) ([]*Issue, error)
+	SearchPages(ctx context.Context, workspaceID uuid.UUID, query string, limit int) ([]*Page, error)
+
+	// File Assets
+	CreateFileAsset(ctx context.Context, workspaceID uuid.UUID, entityType string, entityID uuid.UUID, fileName string, fileSize int64, contentType, storageKey string, uploadedBy uuid.UUID) (*FileAsset, error)
+	GetFileAssetByID(ctx context.Context, id uuid.UUID) (*FileAsset, error)
+	ListFileAssetsByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*FileAsset, error)
+	DeleteFileAsset(ctx context.Context, id uuid.UUID) error
 }

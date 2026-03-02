@@ -61,6 +61,36 @@ const router = createRouter({
           component: () => import('@/views/project/ReportsView.vue'),
         },
         {
+          path: 'projects/:projectId/cycles',
+          name: 'cycles',
+          component: () => import('@/views/project/CyclesView.vue'),
+        },
+        {
+          path: 'projects/:projectId/cycles/:cycleId',
+          name: 'cycle-detail',
+          component: () => import('@/views/project/CycleDetailView.vue'),
+        },
+        {
+          path: 'projects/:projectId/modules',
+          name: 'modules',
+          component: () => import('@/views/project/ModulesView.vue'),
+        },
+        {
+          path: 'projects/:projectId/modules/:moduleId',
+          name: 'module-detail',
+          component: () => import('@/views/project/ModuleDetailView.vue'),
+        },
+        {
+          path: 'projects/:projectId/pages',
+          name: 'pages',
+          component: () => import('@/views/project/PagesView.vue'),
+        },
+        {
+          path: 'projects/:projectId/pages/:pageId',
+          name: 'page-detail',
+          component: () => import('@/views/project/PageDetailView.vue'),
+        },
+        {
           path: 'projects/:projectId/issues/:issueId',
           name: 'issue-detail',
           component: () => import('@/views/project/IssueDetailView.vue'),

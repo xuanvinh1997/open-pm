@@ -10,6 +10,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/open-pm/open-pm/server/internal/config"
 	"github.com/open-pm/open-pm/server/internal/service"
+	"github.com/open-pm/open-pm/server/internal/email"
+	"github.com/open-pm/open-pm/server/internal/storage"
 )
 
 type API struct {
@@ -18,6 +20,8 @@ type API struct {
 	validator *validator.Validate
 	handler   http.Handler
 	llm       service.LLMProvider
+	storage   *storage.Storage
+	mailer    *email.Mailer
 }
 
 // WithLLM sets the LLM provider on the API.
@@ -26,6 +30,8 @@ func WithLLM(llm service.LLMProvider) func(*API) {
 		a.llm = llm
 	}
 }
+
+
 
 func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 	a := &API{
@@ -36,6 +42,7 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 	for _, opt := range opts {
 		opt(a)
 	}
+
 
 	r := newRouter()
 
@@ -100,6 +107,14 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 			r.Get("/invites", a.ListWorkspaceInvites)
 			r.Post("/invites", a.CreateWorkspaceInvite)
 
+			// Search
+			r.Get("/search", a.GlobalSearch)
+
+			// Assets (file attachments)
+			r.Post("/assets", a.UploadAsset)
+			r.Get("/assets", a.ListAssetsByEntity)
+			r.Delete("/assets/{assetID}", a.DeleteAsset)
+
 			// Notifications
 			r.Get("/notifications", a.ListNotifications)
 			r.Get("/notifications/unread-count", a.CountUnread)
@@ -142,6 +157,42 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 				r.Get("/issues", a.ListIssues)
 				r.Post("/issues", a.CreateIssue)
 
+				// Cycles
+				r.Get("/cycles", a.ListCycles)
+				r.Post("/cycles", a.CreateCycle)
+
+				// Modules
+				r.Get("/modules", a.ListModules)
+				r.Post("/modules", a.CreateModule)
+
+				r.Route("/modules/{moduleID}", func(r *router) {
+					r.Get("/", a.GetModule)
+					r.Put("/", a.UpdateModule)
+					r.Delete("/", a.DeleteModule)
+
+					r.Post("/issues", a.AddIssueToModule)
+					r.Delete("/issues/{issueID}", a.RemoveIssueFromModule)
+				})
+
+				// Pages
+				r.Get("/pages", a.ListPages)
+				r.Post("/pages", a.CreatePage)
+
+				r.Route("/pages/{pageID}", func(r *router) {
+					r.Get("/", a.GetPage)
+					r.Put("/", a.UpdatePage)
+					r.Delete("/", a.DeletePage)
+				})
+
+				r.Route("/cycles/{cycleID}", func(r *router) {
+					r.Get("/", a.GetCycle)
+					r.Put("/", a.UpdateCycle)
+					r.Delete("/", a.DeleteCycle)
+
+					r.Post("/issues", a.AddIssueToCycle)
+					r.Delete("/issues/{issueID}", a.RemoveIssueFromCycle)
+				})
+
 				r.Route("/issues/{issueID}", func(r *router) {
 					r.Get("/", a.GetIssue)
 					r.Put("/", a.UpdateIssue)
@@ -172,9 +223,6 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 					r.Delete("/links/{linkID}", a.DeleteIssueLink)
 				})
 
-				// Cycles
-				r.Get("/cycles", a.ListCycles)
-
 				// Reports
 				r.Get("/reports/issues", a.GetIssueAnalyticsReport)
 				r.Get("/reports/work-logs", a.GetWorkLogReport)
@@ -195,6 +243,20 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 
 	a.handler = r
 	return a
+}
+
+// WithStorage sets the storage backend for file uploads.
+func WithStorage(s *storage.Storage) func(*API) {
+	return func(a *API) {
+		a.storage = s
+	}
+}
+
+// WithMailer sets the email mailer for sending notifications.
+func WithMailer(m *email.Mailer) func(*API) {
+	return func(a *API) {
+		a.mailer = m
+	}
 }
 
 func (a *API) Handler() http.Handler {

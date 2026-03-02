@@ -3,11 +3,13 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
+import type { IssueFilterParams } from '@/api/issue.api'
 import type { Issue, CreateIssueRequest } from '@/types/issue.types'
 import ViewHeader from '@/components/issues/ViewHeader.vue'
 import IssueFilterBar from '@/components/issues/IssueFilterBar.vue'
 import type { IssueFilters } from '@/components/issues/IssueFilterBar.vue'
 import IssueListItem from '@/components/issues/IssueListItem.vue'
+import FilterBar from '@/components/issues/FilterBar.vue'
 import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PEmptyState from '@/components/ui/PEmptyState.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
@@ -43,6 +45,7 @@ const filteredIssues = computed(() => {
     return true
   })
 })
+const currentFilters = ref<IssueFilterParams>({})
 
 const groupedIssues = computed(() => {
   const groups: Record<string, { state: typeof projectStore.states[0]; issues: Issue[] }> = {}
@@ -68,6 +71,22 @@ const defaultStateId = computed(() => {
   return projectStore.states.find((s) => s.is_default)?.id || ''
 })
 
+async function fetchIssues(filters?: IssueFilterParams) {
+  const { data } = await issueApi.list(slug, projectId, 1, 50, filters)
+  issues.value = data.results
+  totalCount.value = data.total_count
+}
+
+async function handleFilterChange(filters: Record<string, string>) {
+  currentFilters.value = filters
+  loading.value = true
+  try {
+    await fetchIssues(filters)
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -78,9 +97,19 @@ onMounted(async () => {
       projectStore.fetchMembers(slug, projectId),
       projectStore.fetchEstimateSystem(slug, projectId),
     ])
-    const { data } = await issueApi.list(slug, projectId)
-    issues.value = data.results
-    totalCount.value = data.total_count
+    // Initialize from URL query params
+    const q = route.query
+    const initialFilters: IssueFilterParams = {}
+    if (q.search) initialFilters.search = q.search as string
+    if (q.priority) initialFilters.priority = q.priority as string
+    if (q.type) initialFilters.type = q.type as string
+    if (q.state) initialFilters.state = q.state as string
+    if (q.assignee) initialFilters.assignee = q.assignee as string
+    if (q.label) initialFilters.label = q.label as string
+    if (q.sort_by) initialFilters.sort_by = q.sort_by as string
+    if (q.sort_order) initialFilters.sort_order = q.sort_order as string
+    currentFilters.value = initialFilters
+    await fetchIssues(initialFilters)
   } finally {
     loading.value = false
   }
@@ -132,6 +161,16 @@ function findState(stateId: string | null | undefined) {
   <div class="flex h-full flex-col">
     <ViewHeader active-view="list" @create="showCreateModal = true" />
     <IssueFilterBar :members="projectStore.members" @update:filters="filters = $event" />
+
+    <!-- Filters -->
+    <div class="border-b border-custom-border-200 px-4 py-2">
+      <FilterBar
+        :states="projectStore.states"
+        :labels="projectStore.labels"
+        :members="projectStore.members"
+        @filter-change="handleFilterChange"
+      />
+    </div>
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-1 items-center justify-center">

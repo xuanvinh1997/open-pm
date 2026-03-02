@@ -240,21 +240,6 @@ func (a *API) GetProjectHealthReport(w http.ResponseWriter, r *http.Request) err
 	})
 }
 
-// ListCycles handles GET .../projects/{projectID}/cycles
-func (a *API) ListCycles(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	projectID := getProjectID(ctx)
-
-	cycles, err := a.queries.ListCyclesByProject(ctx, projectID)
-	if err != nil {
-		return internalServerError("failed to list cycles")
-	}
-
-	return sendJSON(w, http.StatusOK, map[string]interface{}{
-		"results": cycles,
-	})
-}
-
 // buildBurndown creates an ideal burndown chart from start to end date.
 func buildBurndown(startDate, endDate time.Time, totalIssues, completedIssues int) []BurndownPoint {
 	start := startDate.Truncate(24 * time.Hour)

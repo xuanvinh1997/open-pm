@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
 import { issueApi } from '@/api/issue.api'
+import type { IssueFilterParams } from '@/api/issue.api'
 import type { Issue, CreateIssueRequest } from '@/types/issue.types'
 import type { State } from '@/types/project.types'
 import { calculateSortOrder } from '@/utils/sort-order'
@@ -11,6 +12,7 @@ import ViewHeader from '@/components/issues/ViewHeader.vue'
 import IssueFilterBar from '@/components/issues/IssueFilterBar.vue'
 import type { IssueFilters } from '@/components/issues/IssueFilterBar.vue'
 import IssueBoardCard from '@/components/issues/IssueBoardCard.vue'
+import FilterBar from '@/components/issues/FilterBar.vue'
 import CreateIssueModal from '@/components/issues/CreateIssueModal.vue'
 import PSpinner from '@/components/ui/PSpinner.vue'
 import { useToast } from '@/composables/useToast'
@@ -29,6 +31,7 @@ const toast = useToast()
 const issues = ref<Issue[]>([])
 const loading = ref(false)
 const showCreateModal = ref(false)
+const currentFilters = ref<IssueFilterParams>({})
 
 interface ColumnData {
   state: State
@@ -64,6 +67,22 @@ const defaultStateId = computed(() => {
   return projectStore.states.find((s) => s.is_default)?.id || ''
 })
 
+async function fetchIssues(filters?: IssueFilterParams) {
+  const { data } = await issueApi.list(slug, projectId, 1, 200, filters)
+  issues.value = data.results
+  buildColumns()
+}
+
+async function handleFilterChange(filters: Record<string, string>) {
+  currentFilters.value = filters
+  loading.value = true
+  try {
+    await fetchIssues(filters)
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -74,9 +93,18 @@ onMounted(async () => {
       projectStore.fetchMembers(slug, projectId),
       projectStore.fetchEstimateSystem(slug, projectId),
     ])
-    const { data } = await issueApi.list(slug, projectId, 1, 200)
-    issues.value = data.results
-    buildColumns()
+    const q = route.query
+    const initialFilters: IssueFilterParams = {}
+    if (q.search) initialFilters.search = q.search as string
+    if (q.priority) initialFilters.priority = q.priority as string
+    if (q.type) initialFilters.type = q.type as string
+    if (q.state) initialFilters.state = q.state as string
+    if (q.assignee) initialFilters.assignee = q.assignee as string
+    if (q.label) initialFilters.label = q.label as string
+    if (q.sort_by) initialFilters.sort_by = q.sort_by as string
+    if (q.sort_order) initialFilters.sort_order = q.sort_order as string
+    currentFilters.value = initialFilters
+    await fetchIssues(initialFilters)
   } finally {
     loading.value = false
   }
@@ -157,6 +185,16 @@ async function handleDragChange(
   <div class="flex h-full flex-col">
     <ViewHeader active-view="board" @create="showCreateModal = true" />
     <IssueFilterBar :members="projectStore.members" @update:filters="(f) => { filters = f; buildColumns() }" />
+
+    <!-- Filters -->
+    <div class="border-b border-custom-border-200 px-4 py-2">
+      <FilterBar
+        :states="projectStore.states"
+        :labels="projectStore.labels"
+        :members="projectStore.members"
+        @filter-change="handleFilterChange"
+      />
+    </div>
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-1 items-center justify-center">

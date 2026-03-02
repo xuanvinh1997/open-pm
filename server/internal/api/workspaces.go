@@ -2,11 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gofrs/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
@@ -249,7 +251,24 @@ func (a *API) CreateWorkspaceInvite(w http.ResponseWriter, r *http.Request) erro
 		return internalServerError("failed to create invite")
 	}
 
-	// TODO: send invite email
+	// Send invite email
+	if a.mailer != nil {
+		ws, _ := a.queries.GetWorkspaceByID(ctx, workspaceID)
+		wsName := "a workspace"
+		if ws != nil {
+			wsName = ws.Name
+		}
+		acceptURL := fmt.Sprintf("%s/invites/%s", a.config.SiteURL, token)
+		go func() {
+			if err := a.mailer.Send(body.Email, fmt.Sprintf("You're invited to %s", wsName), "workspace_invite.html", map[string]string{
+				"WorkspaceName": wsName,
+				"Message":       body.Message,
+				"AcceptURL":     acceptURL,
+			}); err != nil {
+				log.Warn().Err(err).Str("to", body.Email).Msg("failed to send invite email")
+			}
+		}()
+	}
 
 	return sendJSON(w, http.StatusCreated, invite)
 }
