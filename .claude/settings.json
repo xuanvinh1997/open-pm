@@ -50,7 +50,11 @@
       "WebFetch(domain:www.atlassian.com)",
       "WebFetch(domain:dev.to)",
       "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/web/src/components/ui/*.vue)",
-      "Bash(xargs ls -la)"
+      "Bash(xargs ls -la)",
+      "WebFetch(domain:developer.atlassian.com)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(/Users/vinhpx/Workspaces/Mine/open-pm/server/migrations/000020_create_components.up.sql:*)",
+      "Bash(cat /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/config/*.go)"
     ],
     "additionalDirectories": [
       "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",

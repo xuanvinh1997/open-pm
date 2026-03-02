@@ -207,14 +207,16 @@ func (r *Repository) SumWorkLogsByDate(ctx context.Context, projectID uuid.UUID,
 // --- Reports: Project Health ---
 
 const issueColumns = `id, project_id, workspace_id, parent_id, state_id, name, description_html, description_json, description_stripped,
-		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at`
+		        priority, issue_type, start_date, target_date, sequence_id, sort_order, estimate_point, completed_at, archived_at, is_draft, created_by, updated_by, created_at, updated_at,
+		        reporter_id, resolution_id, resolved_at`
 
 func scanIssueRow(rows interface{ Scan(dest ...interface{}) error }) (*api.Issue, error) {
 	var i api.Issue
 	err := rows.Scan(&i.ID, &i.ProjectID, &i.WorkspaceID, &i.ParentID, &i.StateID, &i.Name,
 		&i.DescriptionHTML, &i.DescriptionJSON, &i.DescriptionStripped,
 		&i.Priority, &i.IssueType, &i.StartDate, &i.TargetDate, &i.SequenceID, &i.SortOrder,
-		&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt)
+		&i.EstimatePoint, &i.CompletedAt, &i.ArchivedAt, &i.IsDraft, &i.CreatedBy, &i.UpdatedBy, &i.CreatedAt, &i.UpdatedAt,
+		&i.ReporterID, &i.ResolutionID, &i.ResolvedAt)
 	return &i, err
 }
 
@@ -373,4 +375,26 @@ func (r *Repository) CountTotalSprintIssues(ctx context.Context, sprintID uuid.U
 		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL`, sprintID,
 	).Scan(&count)
 	return count, err
+}
+
+func (r *Repository) SumCompletedSprintPoints(ctx context.Context, sprintID uuid.UUID) (int64, error) {
+	var sum int64
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(SUM(i.estimate_point), 0)::bigint
+		 FROM sprint_issues ci
+		 JOIN issues i ON ci.issue_id = i.id
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL AND i.completed_at IS NOT NULL AND i.estimate_point IS NOT NULL`, sprintID,
+	).Scan(&sum)
+	return sum, err
+}
+
+func (r *Repository) SumTotalSprintPoints(ctx context.Context, sprintID uuid.UUID) (int64, error) {
+	var sum int64
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(SUM(i.estimate_point), 0)::bigint
+		 FROM sprint_issues ci
+		 JOIN issues i ON ci.issue_id = i.id
+		 WHERE ci.sprint_id = $1 AND i.deleted_at IS NULL AND i.estimate_point IS NOT NULL`, sprintID,
+	).Scan(&sum)
+	return sum, err
 }

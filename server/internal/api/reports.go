@@ -147,18 +147,23 @@ func (a *API) GetSprintReport(w http.ResponseWriter, r *http.Request) error {
 		return internalServerError("failed to count cycle issues by state")
 	}
 
+	totalPoints, _ := a.queries.SumTotalSprintPoints(ctx, sprintID)
+	completedPoints, _ := a.queries.SumCompletedSprintPoints(ctx, sprintID)
+
 	// Build burndown data
 	var burndown []BurndownPoint
 	if cycle.StartDate != nil && cycle.EndDate != nil {
-		burndown = buildBurndown(*cycle.StartDate, *cycle.EndDate, int(totalCount), int(completedCount))
+		burndown = buildBurndown(*cycle.StartDate, *cycle.EndDate, int(totalCount), int(completedCount), int(totalPoints), int(completedPoints))
 	}
 
 	return sendJSON(w, http.StatusOK, map[string]interface{}{
-		"sprint":           cycle,
-		"total_issues":    totalCount,
-		"completed_issues": completedCount,
-		"burndown_points": burndown,
-		"issues_by_state": byState,
+		"sprint":            cycle,
+		"total_issues":      totalCount,
+		"completed_issues":  completedCount,
+		"total_points":      totalPoints,
+		"completed_points":  completedPoints,
+		"burndown_points":   burndown,
+		"issues_by_state":   byState,
 	})
 }
 
@@ -182,11 +187,15 @@ func (a *API) GetVelocityReport(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			continue
 		}
+		totalPoints, _ := a.queries.SumTotalSprintPoints(ctx, c.ID)
+		completedPoints, _ := a.queries.SumCompletedSprintPoints(ctx, c.ID)
 		points = append(points, VelocityPoint{
 			SprintID:        c.ID,
 			SprintName:      c.Name,
-			CompletedCount: int(completed),
-			TotalCount:     int(total),
+			CompletedCount:  int(completed),
+			TotalCount:      int(total),
+			CompletedPoints: int(completedPoints),
+			TotalPoints:     int(totalPoints),
 		})
 	}
 	if points == nil {
@@ -241,7 +250,8 @@ func (a *API) GetProjectHealthReport(w http.ResponseWriter, r *http.Request) err
 }
 
 // buildBurndown creates an ideal burndown chart from start to end date.
-func buildBurndown(startDate, endDate time.Time, totalIssues, completedIssues int) []BurndownPoint {
+// It supports both issue-count-based and story-point-based burndown curves.
+func buildBurndown(startDate, endDate time.Time, totalIssues, completedIssues, totalPoints, completedPoints int) []BurndownPoint {
 	start := startDate.Truncate(24 * time.Hour)
 	end := endDate.Truncate(24 * time.Hour)
 	now := time.Now().Truncate(24 * time.Hour)
@@ -255,26 +265,42 @@ func buildBurndown(startDate, endDate time.Time, totalIssues, completedIssues in
 		totalDays = 1
 	}
 
-	remaining := totalIssues
+	remainingCount := totalIssues
+	remainingPoints := totalPoints
 	var points []BurndownPoint
 
 	for d := start; !d.After(end) && !d.After(now); d = d.AddDate(0, 0, 1) {
 		dayIndex := int(d.Sub(start).Hours() / 24)
+
+		// Ideal remaining (count-based)
 		idealRemaining := float64(totalIssues) * (1.0 - float64(dayIndex)/float64(totalDays-1))
 		idealRemaining = math.Max(0, idealRemaining)
 
-		// Simple linear interpolation for completed
-		if totalDays > 1 && completedIssues > 0 {
+		// Ideal remaining (point-based)
+		idealRemainingPoints := float64(totalPoints) * (1.0 - float64(dayIndex)/float64(totalDays-1))
+		idealRemainingPoints = math.Max(0, idealRemainingPoints)
+
+		// Simple linear interpolation for completed counts
+		if totalDays > 1 {
 			progress := float64(dayIndex) / float64(totalDays-1)
-			completed := int(math.Round(float64(completedIssues) * progress))
-			remaining = totalIssues - completed
+			if completedIssues > 0 {
+				done := int(math.Round(float64(completedIssues) * progress))
+				remainingCount = totalIssues - done
+			}
+			if completedPoints > 0 {
+				donePoints := int(math.Round(float64(completedPoints) * progress))
+				remainingPoints = totalPoints - donePoints
+			}
 		}
 
 		points = append(points, BurndownPoint{
-			Date:           d.Format("2006-01-02"),
-			RemainingCount: remaining,
-			CompletedCount: totalIssues - remaining,
-			IdealRemaining: math.Round(idealRemaining*100) / 100,
+			Date:                 d.Format("2006-01-02"),
+			RemainingCount:       remainingCount,
+			CompletedCount:       totalIssues - remainingCount,
+			IdealRemaining:       math.Round(idealRemaining*100) / 100,
+			RemainingPoints:      remainingPoints,
+			CompletedPoints:      totalPoints - remainingPoints,
+			IdealRemainingPoints: math.Round(idealRemainingPoints*100) / 100,
 		})
 	}
 

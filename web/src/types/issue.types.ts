@@ -27,6 +27,9 @@ export interface Issue {
   updated_by?: string
   created_at: string
   updated_at: string
+  reporter_id?: string
+  resolution_id?: string
+  resolved_at?: string
   // Enriched fields
   assignees?: UserSummary[]
   labels?: Label[]
@@ -34,6 +37,33 @@ export interface Issue {
   relations?: IssueRelation[]
   links?: IssueLink[]
   sprints?: IssueSprint[]
+  fix_versions?: IssueVersion[]
+  affects_versions?: IssueVersion[]
+  components?: IssueComponent[]
+}
+
+export interface IssueVersion {
+  id: string
+  name: string
+  released: boolean
+  release_date?: string
+}
+
+export interface IssueComponent {
+  id: string
+  name: string
+  description: string
+}
+
+export interface IssueResolution {
+  id: string
+  project_id: string
+  workspace_id: string
+  name: string
+  description: string
+  is_default: boolean
+  sort_order: number
+  created_at: string
 }
 
 export interface IssueSprint {

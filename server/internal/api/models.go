@@ -180,11 +180,15 @@ type Issue struct {
 	EstimatePoint      *int            `json:"estimate_point,omitempty"`
 	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
 	ArchivedAt         *time.Time      `json:"archived_at,omitempty"`
-	IsDraft            bool            `json:"is_draft"`
-	CreatedBy          *uuid.UUID      `json:"created_by,omitempty"`
-	UpdatedBy          *uuid.UUID      `json:"updated_by,omitempty"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
+	IsDraft             bool            `json:"is_draft"`
+	CreatedBy           *uuid.UUID      `json:"created_by,omitempty"`
+	UpdatedBy           *uuid.UUID      `json:"updated_by,omitempty"`
+	CreatedAt           time.Time       `json:"created_at"`
+	UpdatedAt           time.Time       `json:"updated_at"`
+	// JIRA parity fields
+	ReporterID   *uuid.UUID `json:"reporter_id,omitempty"`
+	ResolutionID *uuid.UUID `json:"resolution_id,omitempty"`
+	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`
 }
 
 type CreateIssueParams struct {
@@ -200,28 +204,32 @@ type CreateIssueParams struct {
 	IssueType          string
 	StartDate          *time.Time
 	TargetDate         *time.Time
-	IsDraft            bool
-	EstimatePoint      *int
-	CreatedBy          *uuid.UUID
+	IsDraft             bool
+	EstimatePoint       *int
+	CreatedBy           *uuid.UUID
+	ReporterID          *uuid.UUID
 }
 
 type UpdateIssueParams struct {
-	StateID            *uuid.UUID
-	Name               *string
-	DescriptionHTML    *string
-	DescriptionJSON    json.RawMessage
+	StateID             *uuid.UUID
+	Name                *string
+	DescriptionHTML     *string
+	DescriptionJSON     json.RawMessage
 	DescriptionStripped *string
-	Priority           *string
-	IssueType          *string
-	StartDate          *time.Time
-	TargetDate         *time.Time
-	ParentID           *uuid.UUID
-	SortOrder          *float64
-	IsDraft            *bool
-	EstimatePoint      *int
-	CompletedAt        *time.Time
-	ArchivedAt         *time.Time
-	UpdatedBy          *uuid.UUID
+	Priority            *string
+	IssueType           *string
+	StartDate           *time.Time
+	TargetDate          *time.Time
+	ParentID            *uuid.UUID
+	SortOrder           *float64
+	IsDraft             *bool
+	EstimatePoint       *int
+	CompletedAt         *time.Time
+	ArchivedAt          *time.Time
+	UpdatedBy           *uuid.UUID
+	ReporterID          *uuid.UUID
+	ResolutionID        *uuid.UUID
+	ResolvedAt          *time.Time
 }
 
 type IssueComment struct {
@@ -291,6 +299,7 @@ type Sprint struct {
 	Name             string          `json:"name"`
 	Description      string          `json:"description"`
 	Status           string          `json:"status"`
+	Goal             string          `json:"goal"`
 	StartDate        *time.Time      `json:"start_date,omitempty"`
 	EndDate          *time.Time      `json:"end_date,omitempty"`
 	OwnedBy          uuid.UUID       `json:"owned_by"`
@@ -354,14 +363,25 @@ type Page struct {
 }
 
 type IssueFilters struct {
-	Priority    []string
-	IssueType   []string
-	StateIDs    []uuid.UUID
-	AssigneeIDs []uuid.UUID
-	LabelIDs    []uuid.UUID
-	Search      string
-	SortBy      string
-	SortOrder   string
+	Priority       []string
+	IssueType      []string
+	StateIDs       []uuid.UUID
+	AssigneeIDs    []uuid.UUID
+	LabelIDs       []uuid.UUID
+	ReporterIDs    []uuid.UUID
+	EpicIDs        []uuid.UUID
+	SprintIDs      []uuid.UUID
+	VersionIDs     []uuid.UUID
+	ComponentIDs   []uuid.UUID
+	Search         string
+	SortBy         string
+	SortOrder      string
+	CreatedAfter   *time.Time
+	CreatedBefore  *time.Time
+	TargetAfter    *time.Time
+	TargetBefore   *time.Time
+	IsOverdue      bool
+	HasEstimate    *bool
 }
 
 type WorkLog struct {
@@ -510,17 +530,24 @@ type WorkLogSummaryByDate struct {
 }
 
 type BurndownPoint struct {
-	Date           string  `json:"date"`
-	RemainingCount int     `json:"remaining_count"`
-	CompletedCount int     `json:"completed_count"`
-	IdealRemaining float64 `json:"ideal_remaining"`
+	Date            string  `json:"date"`
+	RemainingCount  int     `json:"remaining_count"`
+	CompletedCount  int     `json:"completed_count"`
+	IdealRemaining  float64 `json:"ideal_remaining"`
+	// Story point variants (0 when no estimates present)
+	RemainingPoints int     `json:"remaining_points"`
+	CompletedPoints int     `json:"completed_points"`
+	IdealRemainingPoints float64 `json:"ideal_remaining_points"`
 }
 
 type VelocityPoint struct {
-	SprintID       uuid.UUID `json:"sprint_id"`
-	SprintName     string    `json:"sprint_name"`
-	CompletedCount int       `json:"completed_count"`
-	TotalCount     int       `json:"total_count"`
+	SprintID        uuid.UUID `json:"sprint_id"`
+	SprintName      string    `json:"sprint_name"`
+	CompletedCount  int       `json:"completed_count"`
+	TotalCount      int       `json:"total_count"`
+	// Story point variants (0 when no estimates present)
+	CompletedPoints int       `json:"completed_points"`
+	TotalPoints     int       `json:"total_points"`
 }
 
 type ProjectHealthReport struct {
@@ -561,4 +588,60 @@ type ChatMessage struct {
 	Content     string          `json:"content"`
 	Metadata    json.RawMessage `json:"metadata,omitempty"`
 	CreatedAt   time.Time       `json:"created_at"`
+}
+
+// --- Issue Resolution models ---
+
+type IssueResolution struct {
+	ID          uuid.UUID `json:"id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsDefault   bool      `json:"is_default"`
+	SortOrder   float64   `json:"sort_order"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// --- Version / Release models ---
+
+type Version struct {
+	ID          uuid.UUID  `json:"id"`
+	ProjectID   uuid.UUID  `json:"project_id"`
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	StartDate   *time.Time `json:"start_date,omitempty"`
+	ReleaseDate *time.Time `json:"release_date,omitempty"`
+	Released    bool       `json:"released"`
+	ReleasedAt  *time.Time `json:"released_at,omitempty"`
+	ArchivedAt  *time.Time `json:"archived_at,omitempty"`
+	SortOrder   float64    `json:"sort_order"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// --- Component models ---
+
+type Component struct {
+	ID                  uuid.UUID  `json:"id"`
+	ProjectID           uuid.UUID  `json:"project_id"`
+	WorkspaceID         uuid.UUID  `json:"workspace_id"`
+	Name                string     `json:"name"`
+	Description         string     `json:"description"`
+	LeadID              *uuid.UUID `json:"lead_id,omitempty"`
+	DefaultAssigneeType string     `json:"default_assignee_type"`
+	SortOrder           float64    `json:"sort_order"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
+type ComponentWithLead struct {
+	Component
+	LeadFirstName   string  `json:"lead_first_name,omitempty"`
+	LeadLastName    string  `json:"lead_last_name,omitempty"`
+	LeadDisplayName string  `json:"lead_display_name,omitempty"`
+	LeadAvatarURL   string  `json:"lead_avatar_url,omitempty"`
+	LeadEmail       *string `json:"lead_email,omitempty"`
 }

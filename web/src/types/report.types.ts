@@ -64,6 +64,9 @@ export interface BurndownPoint {
   remaining_count: number
   completed_count: number
   ideal_remaining: number
+  remaining_points: number
+  completed_points: number
+  ideal_remaining_points: number
 }
 
 export interface VelocityPoint {
@@ -71,6 +74,8 @@ export interface VelocityPoint {
   sprint_name: string
   completed_count: number
   total_count: number
+  completed_points: number
+  total_points: number
 }
 
 export interface ProjectHealthReport {
@@ -105,6 +110,8 @@ export interface SprintReportData {
   sprint: Sprint
   total_issues: number
   completed_issues: number
+  total_points: number
+  completed_points: number
   burndown_points: BurndownPoint[]
   issues_by_state: IssuesByStateReport[]
 }

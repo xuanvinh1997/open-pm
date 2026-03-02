@@ -149,6 +149,27 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 				r.Put("/labels/{labelID}", a.UpdateLabel)
 				r.Delete("/labels/{labelID}", a.DeleteLabel)
 
+				// Resolutions
+				r.Get("/resolutions", a.ListIssueResolutions)
+				r.Post("/resolutions", a.CreateIssueResolution)
+				r.Put("/resolutions/{resolutionID}", a.UpdateIssueResolution)
+				r.Delete("/resolutions/{resolutionID}", a.DeleteIssueResolution)
+
+				// Versions
+				r.Get("/versions", a.ListVersions)
+				r.Post("/versions", a.CreateVersion)
+				r.Route("/versions/{versionID}", func(r *router) {
+					r.Get("/", a.GetVersion)
+					r.Put("/", a.UpdateVersion)
+					r.Delete("/", a.DeleteVersion)
+				})
+
+				// Components
+				r.Get("/components", a.ListComponents)
+				r.Post("/components", a.CreateComponent)
+				r.Put("/components/{componentID}", a.UpdateComponent)
+				r.Delete("/components/{componentID}", a.DeleteComponent)
+
 				// Estimates
 				r.Get("/estimates", a.GetEstimateSystem)
 				r.Put("/estimates", a.CreateOrUpdateEstimateSystem)
@@ -227,6 +248,21 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 					r.Post("/links", a.CreateIssueLink)
 					r.Put("/links/{linkID}", a.UpdateIssueLink)
 					r.Delete("/links/{linkID}", a.DeleteIssueLink)
+
+					// Attachments (alias for assets filtered by issue)
+					r.Get("/attachments", a.ListAssetsByEntity)
+
+					// Fix Versions
+					r.Post("/fix-versions", a.AddIssueFixVersion)
+					r.Delete("/fix-versions/{versionID}", a.RemoveIssueFixVersion)
+
+					// Affects Versions
+					r.Post("/affects-versions", a.AddIssueAffectsVersion)
+					r.Delete("/affects-versions/{versionID}", a.RemoveIssueAffectsVersion)
+
+					// Components
+					r.Post("/components", a.AddIssueComponent)
+					r.Delete("/components/{componentID}", a.RemoveIssueComponent)
 				})
 
 				// Reports

@@ -13,6 +13,7 @@ import (
 type CreateSprintRequest struct {
 	Name        string `json:"name" validate:"required,min=1,max=255"`
 	Description string `json:"description,omitempty"`
+	Goal        string `json:"goal,omitempty"`
 	StartDate   string `json:"start_date,omitempty"`
 	EndDate     string `json:"end_date,omitempty"`
 }
@@ -20,6 +21,7 @@ type CreateSprintRequest struct {
 type UpdateSprintRequest struct {
 	Name        *string  `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
 	Description *string  `json:"description,omitempty"`
+	Goal        *string  `json:"goal,omitempty"`
 	StartDate   *string  `json:"start_date,omitempty"`
 	EndDate     *string  `json:"end_date,omitempty"`
 	Status      *string  `json:"status,omitempty"`
@@ -88,7 +90,7 @@ func (a *API) CreateSprint(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("end_date must not be before start_date")
 	}
 
-	cycle, err := a.queries.CreateSprint(ctx, projectID, workspaceID, req.Name, req.Description, startDate, endDate, userID)
+	cycle, err := a.queries.CreateSprint(ctx, projectID, workspaceID, req.Name, req.Description, req.Goal, startDate, endDate, userID)
 	if err != nil {
 		return internalServerError("failed to create sprint")
 	}
@@ -163,7 +165,7 @@ func (a *API) UpdateSprint(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("invalid status, must be one of: planned, active, completed")
 	}
 
-	cycle, err := a.queries.UpdateSprint(r.Context(), sprintID, req.Name, req.Description, startDate, endDate, req.Status, req.SortOrder)
+	cycle, err := a.queries.UpdateSprint(r.Context(), sprintID, req.Name, req.Description, req.Goal, startDate, endDate, req.Status, req.SortOrder)
 	if err != nil {
 		return internalServerError("failed to update sprint")
 	}

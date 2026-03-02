@@ -116,10 +116,10 @@ type Queries interface {
 	SumWorkLogMinutesByIssue(ctx context.Context, issueID uuid.UUID) (int64, error)
 
 	// Sprints
-	CreateSprint(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Sprint, error)
+	CreateSprint(ctx context.Context, projectID, workspaceID uuid.UUID, name, description, goal string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Sprint, error)
 	GetSprintByID(ctx context.Context, id uuid.UUID) (*Sprint, error)
 	ListSprintsByProject(ctx context.Context, projectID uuid.UUID) ([]*Sprint, error)
-	UpdateSprint(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, status *string, sortOrder *float64) (*Sprint, error)
+	UpdateSprint(ctx context.Context, id uuid.UUID, name, description, goal *string, startDate, endDate *time.Time, status *string, sortOrder *float64) (*Sprint, error)
 	UpdateSprintStatus(ctx context.Context, id uuid.UUID, status string) error
 	MoveSprintIssues(ctx context.Context, fromSprintID, toSprintID uuid.UUID) error
 	DeleteSprint(ctx context.Context, id uuid.UUID) error
@@ -203,6 +203,8 @@ type Queries interface {
 	CountSprintIssuesByState(ctx context.Context, sprintID uuid.UUID) ([]*IssuesByStateReport, error)
 	CountCompletedSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
 	CountTotalSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
+	SumCompletedSprintPoints(ctx context.Context, sprintID uuid.UUID) (int64, error)
+	SumTotalSprintPoints(ctx context.Context, sprintID uuid.UUID) (int64, error)
 
 	// Views
 	CreateView(ctx context.Context, projectID *uuid.UUID, workspaceID uuid.UUID, name, description string, filters, displayFilters, displayProperties []byte, access int16, createdBy *uuid.UUID) (*View, error)
@@ -224,4 +226,34 @@ type Queries interface {
 	GetFileAssetByID(ctx context.Context, id uuid.UUID) (*FileAsset, error)
 	ListFileAssetsByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*FileAsset, error)
 	DeleteFileAsset(ctx context.Context, id uuid.UUID) error
+
+	// Issue Resolutions
+	CreateIssueResolution(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, isDefault bool, sortOrder float64) (*IssueResolution, error)
+	GetIssueResolutionByID(ctx context.Context, id uuid.UUID) (*IssueResolution, error)
+	ListIssueResolutionsByProject(ctx context.Context, projectID uuid.UUID) ([]*IssueResolution, error)
+	UpdateIssueResolution(ctx context.Context, id uuid.UUID, name, description *string, isDefault *bool, sortOrder *float64) (*IssueResolution, error)
+	DeleteIssueResolution(ctx context.Context, id uuid.UUID) error
+
+	// Versions
+	CreateVersion(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, releaseDate *time.Time, createdBy *uuid.UUID) (*Version, error)
+	GetVersionByID(ctx context.Context, id uuid.UUID) (*Version, error)
+	ListVersionsByProject(ctx context.Context, projectID uuid.UUID) ([]*Version, error)
+	UpdateVersion(ctx context.Context, id uuid.UUID, name, description *string, startDate, releaseDate *time.Time, released *bool, sortOrder *float64) (*Version, error)
+	DeleteVersion(ctx context.Context, id uuid.UUID) error
+	AddIssueFixVersion(ctx context.Context, issueID, versionID uuid.UUID) error
+	RemoveIssueFixVersion(ctx context.Context, issueID, versionID uuid.UUID) error
+	AddIssueAffectsVersion(ctx context.Context, issueID, versionID uuid.UUID) error
+	RemoveIssueAffectsVersion(ctx context.Context, issueID, versionID uuid.UUID) error
+	ListFixVersionsByIssue(ctx context.Context, issueID uuid.UUID) ([]*Version, error)
+	ListAffectsVersionsByIssue(ctx context.Context, issueID uuid.UUID) ([]*Version, error)
+
+	// Components
+	CreateComponent(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, leadID *uuid.UUID, defaultAssigneeType string, sortOrder float64) (*Component, error)
+	GetComponentByID(ctx context.Context, id uuid.UUID) (*Component, error)
+	ListComponentsByProject(ctx context.Context, projectID uuid.UUID) ([]*ComponentWithLead, error)
+	UpdateComponent(ctx context.Context, id uuid.UUID, name, description *string, leadID *uuid.UUID, defaultAssigneeType *string, sortOrder *float64) (*Component, error)
+	DeleteComponent(ctx context.Context, id uuid.UUID) error
+	AddIssueComponent(ctx context.Context, issueID, componentID uuid.UUID) error
+	RemoveIssueComponent(ctx context.Context, issueID, componentID uuid.UUID) error
+	ListComponentsByIssue(ctx context.Context, issueID uuid.UUID) ([]*Component, error)
 }
