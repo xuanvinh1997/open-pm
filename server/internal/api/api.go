@@ -156,6 +156,7 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 				// Issues
 				r.Get("/issues", a.ListIssues)
 				r.Post("/issues", a.CreateIssue)
+				r.Get("/backlog", a.ListBacklogIssues)
 
 				// Cycles
 				r.Get("/sprints", a.ListSprints)
@@ -172,6 +173,10 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 
 					r.Post("/issues", a.AddIssueToEpic)
 					r.Delete("/issues/{issueID}", a.RemoveIssueFromEpic)
+
+					r.Get("/members", a.ListEpicMembers)
+					r.Post("/members", a.AddEpicMember)
+					r.Delete("/members/{memberID}", a.RemoveEpicMember)
 				})
 
 				// Pages
@@ -188,6 +193,7 @@ func NewAPI(cfg *config.Config, queries Queries, opts ...func(*API)) *API {
 					r.Get("/", a.GetSprint)
 					r.Put("/", a.UpdateSprint)
 					r.Delete("/", a.DeleteSprint)
+					r.Post("/complete", a.CompleteSprint)
 
 					r.Post("/issues", a.AddIssueToSprint)
 					r.Delete("/issues/{issueID}", a.RemoveIssueFromSprint)

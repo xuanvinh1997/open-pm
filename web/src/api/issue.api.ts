@@ -35,6 +35,12 @@ export const issueApi = {
     )
   },
 
+  listBacklog(slug: string, projectId: string, page = 1, perPage = 200) {
+    return apiClient.get<PaginatedResponse<Issue>>(
+      `${base(slug, projectId)}/backlog?page=${page}&per_page=${perPage}`,
+    )
+  },
+
   create(slug: string, projectId: string, data: CreateIssueRequest) {
     return apiClient.post<Issue>(`${base(slug, projectId)}/issues`, data)
   },

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -202,6 +203,9 @@ func (a *API) DeleteEpic(w http.ResponseWriter, r *http.Request) error {
 
 // AddIssueToEpic handles POST .../modules/{epicID}/issues
 func (a *API) AddIssueToEpic(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	userID := getUserID(ctx)
+
 	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
 	if err != nil {
 		return badRequestError("invalid epic ID")
@@ -215,8 +219,25 @@ func (a *API) AddIssueToEpic(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	if err := a.queries.AddIssueToEpic(r.Context(), epicID, req.IssueID); err != nil {
+	if err := a.queries.AddIssueToEpic(ctx, epicID, req.IssueID); err != nil {
 		return internalServerError("failed to add issue to epic")
+	}
+
+	// Notify issue assignees & subscribers
+	epic, _ := a.queries.GetEpicByID(ctx, epicID)
+	issue, _ := a.queries.GetIssueByID(ctx, req.IssueID)
+	if epic != nil && issue != nil {
+		assignees, _ := a.queries.ListIssueAssignees(ctx, req.IssueID)
+		subscribers, _ := a.queries.ListIssueSubscribers(ctx, req.IssueID)
+		receiverIDs := collectUniqueUserIDs(assignees, subscribers)
+		a.notifyUsers(ctx, receiverIDs, userID, notifyParams{
+			WorkspaceID: issue.WorkspaceID,
+			ProjectID:   &issue.ProjectID,
+			Title:       fmt.Sprintf("\"%s\" added to epic \"%s\"", issue.Name, epic.Name),
+			Message:     "An issue you follow was added to an epic",
+			EntityType:  strPtr("issue"),
+			EntityID:    &req.IssueID,
+		})
 	}
 
 	return sendEmpty(w, http.StatusCreated)
@@ -236,6 +257,75 @@ func (a *API) RemoveIssueFromEpic(w http.ResponseWriter, r *http.Request) error 
 
 	if err := a.queries.RemoveIssueFromEpic(r.Context(), epicID, issueID); err != nil {
 		return internalServerError("failed to remove issue from epic")
+	}
+
+	return sendEmpty(w, http.StatusNoContent)
+}
+
+type EpicMemberRequest struct {
+	MemberID uuid.UUID `json:"member_id" validate:"required"`
+	Role     string    `json:"role,omitempty"`
+}
+
+// ListEpicMembers handles GET .../epics/{epicID}/members
+func (a *API) ListEpicMembers(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
+	if err != nil {
+		return badRequestError("invalid epic ID")
+	}
+
+	members, err := a.queries.ListEpicMembers(r.Context(), epicID)
+	if err != nil {
+		return internalServerError("failed to list epic members")
+	}
+
+	return sendJSON(w, http.StatusOK, map[string]interface{}{
+		"results": members,
+	})
+}
+
+// AddEpicMember handles POST .../epics/{epicID}/members
+func (a *API) AddEpicMember(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
+	if err != nil {
+		return badRequestError("invalid epic ID")
+	}
+
+	var req EpicMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return badRequestError("invalid request body")
+	}
+	if err := a.validator.Struct(req); err != nil {
+		return validationError(err)
+	}
+
+	role := req.Role
+	if role == "" {
+		role = "member"
+	}
+
+	member, err := a.queries.AddEpicMember(r.Context(), epicID, req.MemberID, role)
+	if err != nil {
+		return internalServerError("failed to add epic member")
+	}
+
+	return sendJSON(w, http.StatusCreated, member)
+}
+
+// RemoveEpicMember handles DELETE .../epics/{epicID}/members/{memberID}
+func (a *API) RemoveEpicMember(w http.ResponseWriter, r *http.Request) error {
+	epicID, err := uuid.FromString(chi.URLParam(r, "epicID"))
+	if err != nil {
+		return badRequestError("invalid epic ID")
+	}
+
+	memberID, err := uuid.FromString(chi.URLParam(r, "memberID"))
+	if err != nil {
+		return badRequestError("invalid member ID")
+	}
+
+	if err := a.queries.RemoveEpicMember(r.Context(), epicID, memberID); err != nil {
+		return internalServerError("failed to remove epic member")
 	}
 
 	return sendEmpty(w, http.StatusNoContent)

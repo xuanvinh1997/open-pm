@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -21,7 +22,18 @@ type UpdateSprintRequest struct {
 	Description *string  `json:"description,omitempty"`
 	StartDate   *string  `json:"start_date,omitempty"`
 	EndDate     *string  `json:"end_date,omitempty"`
+	Status      *string  `json:"status,omitempty"`
 	SortOrder   *float64 `json:"sort_order,omitempty"`
+}
+
+type CompleteSprintRequest struct {
+	MoveToSprintID *uuid.UUID `json:"move_to_sprint_id,omitempty"`
+}
+
+var validSprintStatuses = map[string]bool{
+	"planned":   true,
+	"active":    true,
+	"completed": true,
 }
 
 type SprintIssueRequest struct {
@@ -147,12 +159,60 @@ func (a *API) UpdateSprint(w http.ResponseWriter, r *http.Request) error {
 		return badRequestError("end_date must not be before start_date")
 	}
 
-	cycle, err := a.queries.UpdateSprint(r.Context(), sprintID, req.Name, req.Description, startDate, endDate, req.SortOrder)
+	if req.Status != nil && !validSprintStatuses[*req.Status] {
+		return badRequestError("invalid status, must be one of: planned, active, completed")
+	}
+
+	cycle, err := a.queries.UpdateSprint(r.Context(), sprintID, req.Name, req.Description, startDate, endDate, req.Status, req.SortOrder)
 	if err != nil {
 		return internalServerError("failed to update sprint")
 	}
 
 	return sendJSON(w, http.StatusOK, cycle)
+}
+
+// CompleteSprint handles POST .../sprints/{sprintID}/complete
+func (a *API) CompleteSprint(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
+	if err != nil {
+		return badRequestError("invalid sprint ID")
+	}
+
+	sprint, err := a.queries.GetSprintByID(ctx, sprintID)
+	if err != nil {
+		return notFoundError("sprint not found")
+	}
+	if sprint.Status == "completed" {
+		return badRequestError("sprint is already completed")
+	}
+
+	var req CompleteSprintRequest
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			return badRequestError("invalid request body")
+		}
+	}
+
+	// Move incomplete issues to target sprint if specified
+	if req.MoveToSprintID != nil {
+		if err := a.queries.MoveSprintIssues(ctx, sprintID, *req.MoveToSprintID); err != nil {
+			return internalServerError("failed to move incomplete issues")
+		}
+	}
+
+	// Mark sprint as completed
+	if err := a.queries.UpdateSprintStatus(ctx, sprintID, "completed"); err != nil {
+		return internalServerError("failed to complete sprint")
+	}
+
+	updated, err := a.queries.GetSprintByID(ctx, sprintID)
+	if err != nil {
+		return internalServerError("failed to fetch updated sprint")
+	}
+
+	return sendJSON(w, http.StatusOK, updated)
 }
 
 // DeleteSprint handles DELETE .../cycles/{sprintID}
@@ -182,6 +242,9 @@ func (a *API) DeleteSprint(w http.ResponseWriter, r *http.Request) error {
 
 // AddIssueToSprint handles POST .../cycles/{sprintID}/issues
 func (a *API) AddIssueToSprint(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	userID := getUserID(ctx)
+
 	sprintID, err := uuid.FromString(chi.URLParam(r, "sprintID"))
 	if err != nil {
 		return badRequestError("invalid sprint ID")
@@ -195,8 +258,25 @@ func (a *API) AddIssueToSprint(w http.ResponseWriter, r *http.Request) error {
 		return validationError(err)
 	}
 
-	if err := a.queries.AddIssueToSprint(r.Context(), sprintID, req.IssueID); err != nil {
-		return internalServerError("failed to add issue to cycle")
+	if err := a.queries.AddIssueToSprint(ctx, sprintID, req.IssueID); err != nil {
+		return internalServerError("failed to add issue to sprint")
+	}
+
+	// Notify issue assignees & subscribers
+	sprint, _ := a.queries.GetSprintByID(ctx, sprintID)
+	issue, _ := a.queries.GetIssueByID(ctx, req.IssueID)
+	if sprint != nil && issue != nil {
+		assignees, _ := a.queries.ListIssueAssignees(ctx, req.IssueID)
+		subscribers, _ := a.queries.ListIssueSubscribers(ctx, req.IssueID)
+		receiverIDs := collectUniqueUserIDs(assignees, subscribers)
+		a.notifyUsers(ctx, receiverIDs, userID, notifyParams{
+			WorkspaceID: issue.WorkspaceID,
+			ProjectID:   &issue.ProjectID,
+			Title:       fmt.Sprintf("\"%s\" added to sprint \"%s\"", issue.Name, sprint.Name),
+			Message:     "An issue you follow was added to a sprint",
+			EntityType:  strPtr("issue"),
+			EntityID:    &req.IssueID,
+		})
 	}
 
 	return sendEmpty(w, http.StatusCreated)

@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Sprint, CreateSprintRequest, UpdateSprintRequest, SprintDetail } from '@/types/sprint.types'
+import type { Sprint, CreateSprintRequest, UpdateSprintRequest, CompleteSprintRequest, SprintDetail } from '@/types/sprint.types'
 
 const base = (slug: string, projectId: string) =>
   `/api/v1/workspaces/${slug}/projects/${projectId}`
@@ -23,6 +23,10 @@ export const sprintApi = {
 
   delete(slug: string, projectId: string, sprintId: string) {
     return apiClient.delete(`${base(slug, projectId)}/sprints/${sprintId}`)
+  },
+
+  complete(slug: string, projectId: string, sprintId: string, data?: CompleteSprintRequest) {
+    return apiClient.post<Sprint>(`${base(slug, projectId)}/sprints/${sprintId}/complete`, data || {})
   },
 
   addIssue(slug: string, projectId: string, sprintId: string, issueId: string) {

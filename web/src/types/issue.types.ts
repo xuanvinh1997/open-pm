@@ -33,6 +33,13 @@ export interface Issue {
   sub_issues?: Issue[]
   relations?: IssueRelation[]
   links?: IssueLink[]
+  sprints?: IssueSprint[]
+}
+
+export interface IssueSprint {
+  id: string
+  name: string
+  status: string
 }
 
 export interface UserSummary {

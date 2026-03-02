@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
+import { useSprintStore } from '@/stores/sprint.store'
 import { issueApi } from '@/api/issue.api'
 import type { IssueFilterParams } from '@/api/issue.api'
 import type { Issue, CreateIssueRequest } from '@/types/issue.types'
@@ -22,6 +23,7 @@ import { Circle } from 'lucide-vue-next'
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
+const sprintStore = useSprintStore()
 
 const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
@@ -32,6 +34,7 @@ const issues = ref<Issue[]>([])
 const loading = ref(false)
 const showCreateModal = ref(false)
 const currentFilters = ref<IssueFilterParams>({})
+const selectedSprintId = ref('')
 
 interface ColumnData {
   state: State
@@ -68,10 +71,25 @@ const defaultStateId = computed(() => {
 })
 
 async function fetchIssues(filters?: IssueFilterParams) {
-  const { data } = await issueApi.list(slug, projectId, 1, 200, filters)
-  issues.value = data.results
+  if (selectedSprintId.value) {
+    // Fetch sprint issues and use the returned issues
+    const { data } = await sprintStore.fetchSprint(slug, projectId, selectedSprintId.value)
+    issues.value = data.issues
+  } else {
+    const { data } = await issueApi.list(slug, projectId, 1, 200, filters)
+    issues.value = data.results
+  }
   buildColumns()
 }
+
+watch(selectedSprintId, async () => {
+  loading.value = true
+  try {
+    await fetchIssues(currentFilters.value)
+  } finally {
+    loading.value = false
+  }
+})
 
 async function handleFilterChange(filters: Record<string, string>) {
   currentFilters.value = filters
@@ -92,6 +110,7 @@ onMounted(async () => {
       projectStore.fetchLabels(slug, projectId),
       projectStore.fetchMembers(slug, projectId),
       projectStore.fetchEstimateSystem(slug, projectId),
+      sprintStore.fetchSprints(slug, projectId),
     ])
     const q = route.query
     const initialFilters: IssueFilterParams = {}
@@ -186,8 +205,18 @@ async function handleDragChange(
     <ViewHeader active-view="board" @create="showCreateModal = true" />
     <IssueFilterBar :members="projectStore.members" @update:filters="(f) => { filters = f; buildColumns() }" />
 
-    <!-- Filters -->
-    <div class="border-b border-custom-border-200 px-4 py-2">
+    <!-- Sprint filter + Filters -->
+    <div class="border-b border-custom-border-200 px-4 py-2 flex items-center gap-3">
+      <select
+        v-if="sprintStore.sprints.length > 0"
+        v-model="selectedSprintId"
+        class="rounded-md border border-custom-border-200 bg-custom-background-100 px-2.5 py-1 text-xs text-custom-text-200"
+      >
+        <option value="">All Issues</option>
+        <option v-for="s in sprintStore.sprints" :key="s.id" :value="s.id">
+          {{ s.name }}{{ s.status === 'active' ? ' (Active)' : '' }}
+        </option>
+      </select>
       <FilterBar
         :states="projectStore.states"
         :labels="projectStore.labels"

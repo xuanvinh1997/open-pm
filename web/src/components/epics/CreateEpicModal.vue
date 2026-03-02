@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { EpicStatus } from '@/types/epic.types'
 import PModal from '@/components/ui/PModal.vue'
 import PInput from '@/components/ui/PInput.vue'
 import PTextarea from '@/components/ui/PTextarea.vue'
@@ -14,40 +13,28 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  create: [data: { name: string; description?: string; start_date?: string; target_date?: string; status?: EpicStatus }]
+  create: [data: { name: string; description_html?: string; start_date?: string; target_date?: string }]
 }>()
 
 const name = ref('')
 const description = ref('')
 const startDate = ref('')
 const targetDate = ref('')
-const status = ref<EpicStatus>('backlog')
 const loading = ref(false)
-
-const statusOptions: { value: EpicStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in-progress', label: 'In Progress' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
 
 function handleSubmit() {
   if (!name.value.trim()) return
   loading.value = true
   emit('create', {
     name: name.value,
-    description: description.value || undefined,
+    description_html: description.value ? `<p>${description.value}</p>` : undefined,
     start_date: startDate.value || undefined,
     target_date: targetDate.value || undefined,
-    status: status.value,
   })
   name.value = ''
   description.value = ''
   startDate.value = ''
   targetDate.value = ''
-  status.value = 'backlog'
   loading.value = false
 }
 </script>
@@ -63,18 +50,6 @@ function handleSubmit() {
       <div>
         <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Description</label>
         <PTextarea v-model="description" placeholder="Describe the epic..." :rows="3" />
-      </div>
-
-      <div>
-        <label class="mb-1.5 block text-sm font-medium text-custom-text-200">Status</label>
-        <select
-          v-model="status"
-          class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-3 py-2 text-sm text-custom-text-100 focus:border-custom-primary-100 focus:outline-none focus:ring-1 focus:ring-custom-primary-100"
-        >
-          <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
       </div>
 
       <div class="grid grid-cols-2 gap-3">

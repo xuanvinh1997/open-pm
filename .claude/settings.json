@@ -46,7 +46,11 @@
       "Bash(docker compose up -d minio minio-init)",
       "Bash(ls /Users/vinhpx/Workspaces/Mine/open-pm/server/migrations/*.up.sql)",
       "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/db/queries/*.sql)",
-      "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/api/*.go)"
+      "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/server/internal/api/*.go)",
+      "WebFetch(domain:www.atlassian.com)",
+      "WebFetch(domain:dev.to)",
+      "Bash(ls -la /Users/vinhpx/Workspaces/Mine/open-pm/web/src/components/ui/*.vue)",
+      "Bash(xargs ls -la)"
     ],
     "additionalDirectories": [
       "/Users/vinhpx/Workspaces/Mine/open-pm/{server/{cmd/server,internal/{api,config,models,service,repository,db/{queries,sqlc},mailer,realtime,storage,worker},migrations},web,docker",

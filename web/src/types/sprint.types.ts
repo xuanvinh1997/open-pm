@@ -1,9 +1,12 @@
+export type SprintStatus = 'planned' | 'active' | 'completed'
+
 export interface Sprint {
   id: string
   project_id: string
   workspace_id: string
   name: string
   description: string
+  status: SprintStatus
   start_date?: string
   end_date?: string
   owned_by: string
@@ -26,7 +29,12 @@ export interface UpdateSprintRequest {
   description?: string
   start_date?: string
   end_date?: string
+  status?: SprintStatus
   sort_order?: number
+}
+
+export interface CompleteSprintRequest {
+  move_to_sprint_id?: string
 }
 
 export interface SprintDetail {

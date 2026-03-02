@@ -32,6 +32,7 @@ import {
   Repeat,
   Layers,
   FileText,
+  ListTodo,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -213,6 +214,15 @@ const userName = computed(() => {
             >
               <Kanban class="h-3.5 w-3.5" />
               Board
+            </router-link>
+            <router-link
+              v-if="project.sprint_view"
+              :to="`/${slug}/projects/${project.id}/backlog`"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1 text-xs text-custom-text-300 hover:bg-custom-background-90 hover:text-custom-text-200 transition-colors"
+              :class="{ 'bg-custom-background-90 text-custom-text-100': route.path === `/${slug}/projects/${project.id}/backlog` }"
+            >
+              <ListTodo class="h-3.5 w-3.5" />
+              Backlog
             </router-link>
             <router-link
               :to="`/${slug}/projects/${project.id}/analytics`"

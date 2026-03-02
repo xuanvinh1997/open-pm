@@ -54,22 +54,19 @@ function handleSprintClick(sprintId: string) {
   router.push(`/${slug}/projects/${projectId}/sprints/${sprintId}`)
 }
 
-function getSprintStatus(sprint: typeof sprintStore.sprints[0]) {
-  if (!sprint.start_date || !sprint.end_date) return 'Draft'
-  const now = new Date()
-  const start = new Date(sprint.start_date)
-  const end = new Date(sprint.end_date)
-  if (now < start) return 'Upcoming'
-  if (now > end) return 'Completed'
-  return 'Active'
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'active': return 'Active'
+    case 'completed': return 'Completed'
+    default: return 'Planned'
+  }
 }
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'Active': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-    case 'Upcoming': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-    case 'Completed': return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
-    default: return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+    case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+    case 'completed': return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
+    default: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
   }
 }
 </script>
@@ -128,9 +125,9 @@ function getStatusColor(status: string) {
           </div>
           <span
             class="rounded-full px-2 py-0.5 text-2xs font-medium flex-shrink-0"
-            :class="getStatusColor(getSprintStatus(sprint))"
+            :class="getStatusColor(sprint.status)"
           >
-            {{ getSprintStatus(sprint) }}
+            {{ getStatusLabel(sprint.status) }}
           </span>
         </div>
       </div>

@@ -290,6 +290,7 @@ type Sprint struct {
 	WorkspaceID      uuid.UUID       `json:"workspace_id"`
 	Name             string          `json:"name"`
 	Description      string          `json:"description"`
+	Status           string          `json:"status"`
 	StartDate        *time.Time      `json:"start_date,omitempty"`
 	EndDate          *time.Time      `json:"end_date,omitempty"`
 	OwnedBy          uuid.UUID       `json:"owned_by"`
@@ -316,6 +317,23 @@ type Epic struct {
 	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type EpicMember struct {
+	ID        uuid.UUID `json:"id"`
+	EpicID    uuid.UUID `json:"epic_id"`
+	MemberID  uuid.UUID `json:"member_id"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type EpicMemberWithUser struct {
+	EpicMember
+	Email       *string `json:"email,omitempty"`
+	FirstName   string  `json:"first_name"`
+	LastName    string  `json:"last_name"`
+	DisplayName string  `json:"display_name"`
+	AvatarURL   string  `json:"avatar_url"`
 }
 
 type Page struct {
@@ -512,6 +530,24 @@ type ProjectHealthReport struct {
 	OverdueCount      int      `json:"overdue_count"`
 	BlockedCount      int      `json:"blocked_count"`
 	UnestimatedCount  int      `json:"unestimated_count"`
+}
+
+// --- View models ---
+
+type View struct {
+	ID                uuid.UUID       `json:"id"`
+	ProjectID         *uuid.UUID      `json:"project_id,omitempty"`
+	WorkspaceID       uuid.UUID       `json:"workspace_id"`
+	Name              string          `json:"name"`
+	Description       string          `json:"description"`
+	Filters           json.RawMessage `json:"filters"`
+	DisplayFilters    json.RawMessage `json:"display_filters"`
+	DisplayProperties json.RawMessage `json:"display_properties"`
+	Access            int16           `json:"access"`
+	SortOrder         float64         `json:"sort_order"`
+	CreatedBy         *uuid.UUID      `json:"created_by,omitempty"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
 }
 
 // --- Chat models ---

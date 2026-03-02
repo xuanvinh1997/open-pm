@@ -11,7 +11,9 @@ import PButton from '@/components/ui/PButton.vue'
 import { useToast } from '@/composables/useToast'
 import { extractErrorMessage } from '@/utils/api-error'
 import { formatDate } from '@/utils/helpers'
-import { Layers, Plus, Calendar, ArrowRight } from 'lucide-vue-next'
+import { PRIORITY_CONFIG } from '@/utils/issue-helpers'
+import type { IssuePriority } from '@/types/issue.types'
+import { Zap, Plus, Calendar, ArrowRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,28 +32,22 @@ const breadcrumbs = computed(() => [
   { label: 'Epics' },
 ])
 
-const MODULE_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  'backlog': { label: 'Backlog', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400' },
-  'planned': { label: 'Planned', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
-  'in-progress': { label: 'In Progress', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-  'paused': { label: 'Paused', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
-  'completed': { label: 'Completed', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
-  'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
-}
-
 onMounted(async () => {
   loading.value = true
   try {
     await projectStore.setCurrentProject(slug, projectId)
-    await epicStore.fetchEpics(slug, projectId)
+    await Promise.all([
+      projectStore.fetchStates(slug, projectId),
+      epicStore.fetchEpics(slug, projectId),
+    ])
   } finally {
     loading.value = false
   }
 })
 
-async function handleCreateEpic(data: { name: string; description?: string; start_date?: string; target_date?: string; status?: string }) {
+async function handleCreateEpic(data: { name: string; description_html?: string; start_date?: string; target_date?: string }) {
   try {
-    await epicStore.createEpic(slug, projectId, data as any)
+    await epicStore.createEpic(slug, projectId, data)
     showCreateModal.value = false
     toast.success('Epic created')
   } catch (e) {
@@ -60,7 +56,12 @@ async function handleCreateEpic(data: { name: string; description?: string; star
 }
 
 function handleEpicClick(epicId: string) {
-  router.push(`/${slug}/projects/${projectId}/epics/${epicId}`)
+  router.push(`/${slug}/projects/${projectId}/issues/${epicId}`)
+}
+
+function findState(stateId: string | null | undefined) {
+  if (!stateId) return undefined
+  return projectStore.states.find((s) => s.id === stateId)
 }
 </script>
 
@@ -86,8 +87,8 @@ function handleEpicClick(epicId: string) {
     <div v-else-if="epicStore.epics.length === 0" class="flex-1">
       <PEmptyState
         title="No epics"
-        description="Create your first epic to organize features."
-        :icon="Layers"
+        description="Create your first epic to organize large features and initiatives."
+        :icon="Zap"
       >
         <PButton variant="primary" @click="showCreateModal = true">
           <Plus class="h-4 w-4" />
@@ -100,28 +101,38 @@ function handleEpicClick(epicId: string) {
     <div v-else class="flex-1 overflow-y-auto p-4">
       <div class="space-y-2">
         <div
-          v-for="mod in epicStore.epics"
-          :key="mod.id"
+          v-for="epic in epicStore.epics"
+          :key="epic.id"
           class="flex items-center gap-4 rounded-lg border border-custom-border-200 bg-custom-background-100 p-4 hover:bg-custom-background-90 transition-colors cursor-pointer"
-          @click="handleEpicClick(mod.id)"
+          @click="handleEpicClick(epic.id)"
         >
-          <Layers class="h-5 w-5 text-custom-text-300 flex-shrink-0" />
+          <Zap class="h-5 w-5 flex-shrink-0" style="color: #F97316" />
           <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-medium text-custom-text-100 truncate">{{ mod.name }}</h3>
-            <p v-if="mod.description" class="mt-0.5 text-xs text-custom-text-300 truncate">{{ mod.description }}</p>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-custom-text-300">{{ projectStore.currentProject?.identifier }}-{{ epic.sequence_id }}</span>
+              <h3 class="text-sm font-medium text-custom-text-100 truncate">{{ epic.name }}</h3>
+            </div>
+            <p v-if="epic.description_stripped" class="mt-0.5 text-xs text-custom-text-300 truncate">{{ epic.description_stripped }}</p>
           </div>
-          <div v-if="mod.start_date && mod.target_date" class="flex items-center gap-1.5 text-xs text-custom-text-300 flex-shrink-0">
+          <div v-if="epic.start_date && epic.target_date" class="flex items-center gap-1.5 text-xs text-custom-text-300 flex-shrink-0">
             <Calendar class="h-3.5 w-3.5" />
-            <span>{{ formatDate(mod.start_date) }}</span>
+            <span>{{ formatDate(epic.start_date) }}</span>
             <ArrowRight class="h-3 w-3" />
-            <span>{{ formatDate(mod.target_date) }}</span>
+            <span>{{ formatDate(epic.target_date) }}</span>
           </div>
-          <span
-            class="rounded-full px-2 py-0.5 text-2xs font-medium flex-shrink-0"
-            :class="MODULE_STATUS_CONFIG[mod.status]?.color || MODULE_STATUS_CONFIG['backlog'].color"
-          >
-            {{ MODULE_STATUS_CONFIG[mod.status]?.label || mod.status }}
-          </span>
+          <div v-if="findState(epic.state_id)" class="flex items-center gap-1.5 text-xs text-custom-text-300 flex-shrink-0">
+            <span
+              class="h-2.5 w-2.5 rounded-full flex-shrink-0"
+              :style="{ backgroundColor: findState(epic.state_id)?.color }"
+            />
+            <span>{{ findState(epic.state_id)?.name }}</span>
+          </div>
+          <component
+            :is="PRIORITY_CONFIG[epic.priority as IssuePriority]?.icon"
+            v-if="epic.priority && epic.priority !== 'none'"
+            class="h-4 w-4 flex-shrink-0"
+            :style="{ color: PRIORITY_CONFIG[epic.priority as IssuePriority]?.color }"
+          />
         </div>
       </div>
     </div>

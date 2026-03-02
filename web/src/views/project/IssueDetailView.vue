@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore } from '@/stores/project.store'
+import { useSprintStore } from '@/stores/sprint.store'
 import { issueApi } from '@/api/issue.api'
 import type { Issue, IssueComment, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest, IssueRelation, RelationType, IssueLink } from '@/types/issue.types'
 import PBreadcrumb from '@/components/ui/PBreadcrumb.vue'
@@ -24,6 +25,7 @@ import { Briefcase, ArrowLeft, Trash2 } from 'lucide-vue-next'
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
+const sprintStore = useSprintStore()
 
 const slug = route.params.workspaceSlug as string
 const projectId = route.params.projectId as string
@@ -37,6 +39,7 @@ const comments = ref<IssueComment[]>([])
 const workLogs = ref<WorkLog[]>([])
 const relations = ref<IssueRelation[]>([])
 const links = ref<IssueLink[]>([])
+const epics = ref<Issue[]>([])
 const totalMinutes = ref(0)
 const loading = ref(false)
 
@@ -132,6 +135,7 @@ onMounted(async () => {
       projectStore.fetchLabels(slug, projectId),
       projectStore.fetchMembers(slug, projectId),
       projectStore.fetchEstimateSystem(slug, projectId),
+      sprintStore.fetchSprints(slug, projectId),
     ])
 
     const { data: issueData } = await issueApi.get(slug, projectId, issueId)
@@ -140,7 +144,7 @@ onMounted(async () => {
     const { data: commentData } = await issueApi.listComments(slug, projectId, issueId)
     comments.value = commentData.results
 
-    await Promise.all([fetchWorkLogs(), fetchRelations(), fetchLinks()])
+    await Promise.all([fetchWorkLogs(), fetchRelations(), fetchLinks(), fetchEpics()])
   } finally {
     loading.value = false
   }
@@ -171,6 +175,15 @@ async function fetchLinks() {
     links.value = data.results
   } catch (e) {
     toast.error(extractErrorMessage(e, 'Failed to load links'))
+  }
+}
+
+async function fetchEpics() {
+  try {
+    const { data } = await issueApi.list(slug, projectId, 1, 200, { type: 'epic' })
+    epics.value = data.results
+  } catch (e) {
+    // Non-critical — just no epics available
   }
 }
 
@@ -372,6 +385,46 @@ async function handleDeleteWorkLog(id: string) {
     toast.error(extractErrorMessage(e, 'Failed to delete work log'))
   }
 }
+
+async function handleAddToSprint(sprintId: string) {
+  if (!issue.value) return
+  try {
+    await sprintStore.addIssueToSprint(slug, projectId, sprintId, issueId)
+    // Re-fetch issue to get updated sprints list
+    const { data } = await issueApi.get(slug, projectId, issueId)
+    issue.value = data
+    toast.success('Issue added to sprint')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to add issue to sprint'))
+  }
+}
+
+async function handleRemoveFromSprint(sprintId: string) {
+  if (!issue.value) return
+  try {
+    await sprintStore.removeIssueFromSprint(slug, projectId, sprintId, issueId)
+    // Re-fetch issue to get updated sprints list
+    const { data } = await issueApi.get(slug, projectId, issueId)
+    issue.value = data
+    toast.success('Issue removed from sprint')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to remove issue from sprint'))
+  }
+}
+
+async function handleUpdateParent(parentId: string | null) {
+  if (!issue.value) return
+  try {
+    const payload: Record<string, unknown> = parentId
+      ? { parent_id: parentId }
+      : { clear_parent_id: true }
+    const { data } = await issueApi.update(slug, projectId, issueId, payload as any)
+    issue.value = data
+    toast.success(parentId ? 'Epic assigned' : 'Removed from epic')
+  } catch (e) {
+    toast.error(extractErrorMessage(e, 'Failed to update epic'))
+  }
+}
 </script>
 
 <template>
@@ -516,6 +569,8 @@ async function handleDeleteWorkLog(id: string) {
           :states="projectStore.states"
           :labels="projectStore.labels"
           :members="projectStore.members"
+          :sprints="sprintStore.sprints"
+          :epics="epics"
           :work-logs="workLogs"
           :total-minutes="totalMinutes"
           :estimate-system="projectStore.estimateSystem"
@@ -527,6 +582,9 @@ async function handleDeleteWorkLog(id: string) {
           @update:labels="handleUpdateLabels"
           @update:start_date="handleUpdateStartDate"
           @update:target_date="handleUpdateTargetDate"
+          @update:sprint="handleAddToSprint"
+          @remove:sprint="handleRemoveFromSprint"
+          @update:parent="handleUpdateParent"
           @log-work="handleOpenLogWork"
           @edit-work-log="handleEditWorkLog"
           @delete-work-log="handleDeleteWorkLog"

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Issue, IssuePriority, IssueType, WorkLog, CreateWorkLogRequest, UpdateWorkLogRequest, EstimateSystem } from '@/types/issue.types'
 import type { State, Label, ProjectMember } from '@/types/project.types'
+import type { Sprint } from '@/types/sprint.types'
 import { useAuthStore } from '@/stores/auth.store'
 import StateSelector from './StateSelector.vue'
 import PrioritySelector from './PrioritySelector.vue'
@@ -11,13 +12,15 @@ import AssigneeSelector from './AssigneeSelector.vue'
 import LabelSelector from './LabelSelector.vue'
 import PButton from '@/components/ui/PButton.vue'
 import { formatDate } from '@/utils/helpers'
-import { Calendar, Clock, Plus, Pencil, Trash2 } from 'lucide-vue-next'
+import { Calendar, Clock, Plus, Pencil, Trash2, Repeat, Zap, X } from 'lucide-vue-next'
 
 interface Props {
   issue: Issue
   states: State[]
   labels: Label[]
   members: ProjectMember[]
+  sprints: Sprint[]
+  epics: Issue[]
   workLogs: WorkLog[]
   totalMinutes: number
   estimateSystem: EstimateSystem | null
@@ -34,6 +37,9 @@ const emit = defineEmits<{
   'update:labels': [labelIds: string[]]
   'update:start_date': [date: string]
   'update:target_date': [date: string]
+  'update:sprint': [sprintId: string]
+  'remove:sprint': [sprintId: string]
+  'update:parent': [parentId: string | null]
   'log-work': []
   'edit-work-log': [workLog: WorkLog]
   'delete-work-log': [id: string]
@@ -69,6 +75,13 @@ const membersAsUserSummary = computed(() =>
     avatar_url: m.avatar_url,
   }))
 )
+
+const isEpic = computed(() => props.issue.issue_type === 'epic')
+
+const parentEpic = computed(() => {
+  if (!props.issue.parent_id) return null
+  return props.epics.find((e) => e.id === props.issue.parent_id) || null
+})
 
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
@@ -151,6 +164,91 @@ function isOwnLog(log: WorkLog): boolean {
         :labels="props.labels"
         @update:model-value="emit('update:labels', $event)"
       />
+    </div>
+
+    <!-- Epic (Parent) — only for non-epic issues -->
+    <div v-if="!isEpic && props.epics.length > 0">
+      <label class="mb-1.5 block text-xs font-medium text-custom-text-300">Epic</label>
+      <div v-if="parentEpic" class="flex items-center gap-2 rounded-md border border-custom-border-200 px-2.5 py-1.5 text-xs">
+        <Zap class="h-3 w-3 text-orange-500 flex-shrink-0" />
+        <span class="flex-1 text-custom-text-200 truncate">{{ parentEpic.name }}</span>
+        <button
+          @click="emit('update:parent', null)"
+          class="rounded p-0.5 text-custom-text-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+          title="Remove from epic"
+        >
+          <X class="h-3 w-3" />
+        </button>
+      </div>
+      <select
+        v-if="!parentEpic"
+        class="w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-2.5 py-1.5 text-xs text-custom-text-300"
+        @change="(e) => { const target = e.target as HTMLSelectElement; if (target.value) { emit('update:parent', target.value); target.value = '' } }"
+      >
+        <option value="">Select epic...</option>
+        <option
+          v-for="epic in props.epics"
+          :key="epic.id"
+          :value="epic.id"
+        >
+          {{ epic.name }}
+        </option>
+      </select>
+      <select
+        v-else
+        class="mt-1.5 w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-2.5 py-1.5 text-xs text-custom-text-300"
+        @change="(e) => { const target = e.target as HTMLSelectElement; if (target.value) { emit('update:parent', target.value); target.value = '' } }"
+      >
+        <option value="">Change epic...</option>
+        <option
+          v-for="epic in props.epics.filter(e => e.id !== parentEpic?.id)"
+          :key="epic.id"
+          :value="epic.id"
+        >
+          {{ epic.name }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Sprint — only for non-epic issues (epics span multiple sprints) -->
+    <div v-if="!isEpic && props.sprints.length > 0">
+      <label class="mb-1.5 block text-xs font-medium text-custom-text-300">Sprint</label>
+      <div class="space-y-1">
+        <div
+          v-for="sprint in (props.issue.sprints || [])"
+          :key="sprint.id"
+          class="flex items-center gap-2 rounded-md border border-custom-border-200 px-2.5 py-1.5 text-xs"
+        >
+          <Repeat class="h-3 w-3 text-custom-text-300 flex-shrink-0" />
+          <span class="flex-1 text-custom-text-200 truncate">{{ sprint.name }}</span>
+          <span
+            class="rounded-full px-1.5 py-0.5 text-2xs font-medium"
+            :class="sprint.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : sprint.status === 'completed' ? 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'"
+          >
+            {{ sprint.status }}
+          </span>
+          <button
+            @click="emit('remove:sprint', sprint.id)"
+            class="rounded p-0.5 text-custom-text-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+            title="Remove from sprint"
+          >
+            <Trash2 class="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      <select
+        class="mt-1.5 w-full rounded-md border border-custom-border-200 bg-custom-background-100 px-2.5 py-1.5 text-xs text-custom-text-300"
+        @change="(e) => { const target = e.target as HTMLSelectElement; if (target.value) { emit('update:sprint', target.value); target.value = '' } }"
+      >
+        <option value="">+ Add to sprint</option>
+        <option
+          v-for="s in props.sprints.filter(sp => !(props.issue.sprints || []).some(is => is.id === sp.id))"
+          :key="s.id"
+          :value="s.id"
+        >
+          {{ s.name }}{{ s.status === 'active' ? ' (Active)' : '' }}
+        </option>
+      </select>
     </div>
 
     <!-- Dates -->

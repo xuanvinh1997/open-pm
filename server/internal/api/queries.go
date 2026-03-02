@@ -119,12 +119,17 @@ type Queries interface {
 	CreateSprint(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, endDate *time.Time, ownedBy uuid.UUID) (*Sprint, error)
 	GetSprintByID(ctx context.Context, id uuid.UUID) (*Sprint, error)
 	ListSprintsByProject(ctx context.Context, projectID uuid.UUID) ([]*Sprint, error)
-	UpdateSprint(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, sortOrder *float64) (*Sprint, error)
+	UpdateSprint(ctx context.Context, id uuid.UUID, name, description *string, startDate, endDate *time.Time, status *string, sortOrder *float64) (*Sprint, error)
+	UpdateSprintStatus(ctx context.Context, id uuid.UUID, status string) error
+	MoveSprintIssues(ctx context.Context, fromSprintID, toSprintID uuid.UUID) error
 	DeleteSprint(ctx context.Context, id uuid.UUID) error
 	AddIssueToSprint(ctx context.Context, sprintID, issueID uuid.UUID) error
 	RemoveIssueFromSprint(ctx context.Context, sprintID, issueID uuid.UUID) error
 	ListIssuesBySprint(ctx context.Context, sprintID uuid.UUID) ([]*Issue, error)
 	CountIssuesBySprint(ctx context.Context, sprintID uuid.UUID) (int64, error)
+	ListSprintsByIssue(ctx context.Context, issueID uuid.UUID) ([]*Sprint, error)
+	ListBacklogIssues(ctx context.Context, projectID uuid.UUID, limit, offset int) ([]*Issue, error)
+	CountBacklogIssues(ctx context.Context, projectID uuid.UUID) (int64, error)
 
 	// Epics
 	CreateEpic(ctx context.Context, projectID, workspaceID uuid.UUID, name, description string, startDate, targetDate *time.Time, status string, leadID, createdBy *uuid.UUID) (*Epic, error)
@@ -136,6 +141,9 @@ type Queries interface {
 	RemoveIssueFromEpic(ctx context.Context, epicID, issueID uuid.UUID) error
 	ListIssuesByEpic(ctx context.Context, epicID uuid.UUID) ([]*Issue, error)
 	CountIssuesByEpic(ctx context.Context, epicID uuid.UUID) (int64, error)
+	ListEpicMembers(ctx context.Context, epicID uuid.UUID) ([]*EpicMemberWithUser, error)
+	AddEpicMember(ctx context.Context, epicID, memberID uuid.UUID, role string) (*EpicMember, error)
+	RemoveEpicMember(ctx context.Context, epicID, memberID uuid.UUID) error
 
 	// Pages
 	CreatePage(ctx context.Context, projectID *uuid.UUID, workspaceID uuid.UUID, name, descHTML string, descJSON []byte, descStripped string, ownedBy uuid.UUID, parentID *uuid.UUID) (*Page, error)
@@ -195,6 +203,13 @@ type Queries interface {
 	CountSprintIssuesByState(ctx context.Context, sprintID uuid.UUID) ([]*IssuesByStateReport, error)
 	CountCompletedSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
 	CountTotalSprintIssues(ctx context.Context, sprintID uuid.UUID) (int64, error)
+
+	// Views
+	CreateView(ctx context.Context, projectID *uuid.UUID, workspaceID uuid.UUID, name, description string, filters, displayFilters, displayProperties []byte, access int16, createdBy *uuid.UUID) (*View, error)
+	GetViewByID(ctx context.Context, id uuid.UUID) (*View, error)
+	ListViewsByProject(ctx context.Context, projectID uuid.UUID) ([]*View, error)
+	UpdateView(ctx context.Context, id uuid.UUID, name, description *string, filters, displayFilters, displayProperties []byte, access *int16) (*View, error)
+	DeleteView(ctx context.Context, id uuid.UUID) error
 
 	// Chat Messages
 	CreateChatMessage(ctx context.Context, projectID, workspaceID, userID uuid.UUID, role, content string) (*ChatMessage, error)

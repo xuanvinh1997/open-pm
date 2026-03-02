@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { sprintApi } from '@/api/sprint.api'
-import type { Sprint, CreateSprintRequest, UpdateSprintRequest, SprintDetail } from '@/types/sprint.types'
+import type { Sprint, CreateSprintRequest, UpdateSprintRequest, CompleteSprintRequest, SprintDetail } from '@/types/sprint.types'
 import type { Issue } from '@/types/issue.types'
 
 export const useSprintStore = defineStore('sprint', () => {
@@ -53,6 +53,14 @@ export const useSprintStore = defineStore('sprint', () => {
     await sprintApi.addIssue(slug, projectId, sprintId, issueId)
   }
 
+  async function completeSprint(slug: string, projectId: string, sprintId: string, data?: CompleteSprintRequest) {
+    const { data: updated } = await sprintApi.complete(slug, projectId, sprintId, data)
+    const idx = sprints.value.findIndex((c) => c.id === sprintId)
+    if (idx >= 0) sprints.value[idx] = updated
+    if (currentSprint.value?.id === sprintId) currentSprint.value = updated
+    return updated
+  }
+
   async function removeIssueFromSprint(slug: string, projectId: string, sprintId: string, issueId: string) {
     await sprintApi.removeIssue(slug, projectId, sprintId, issueId)
     sprintIssues.value = sprintIssues.value.filter((i) => i.id !== issueId)
@@ -70,6 +78,7 @@ export const useSprintStore = defineStore('sprint', () => {
     createSprint,
     updateSprint,
     deleteSprint,
+    completeSprint,
     addIssueToSprint,
     removeIssueFromSprint,
   }

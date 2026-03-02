@@ -94,6 +94,7 @@ type UpdateIssueRequest struct {
 	IssueType          *string         `json:"issue_type,omitempty"`
 	StateID            *uuid.UUID      `json:"state_id,omitempty"`
 	ParentID           *uuid.UUID      `json:"parent_id,omitempty"`
+	ClearParentID      bool            `json:"clear_parent_id,omitempty"`
 	SortOrder          *float64        `json:"sort_order,omitempty"`
 	AssigneeIDs        []uuid.UUID     `json:"assignee_ids,omitempty"`
 	LabelIDs           []uuid.UUID     `json:"label_ids,omitempty"`
@@ -117,6 +118,28 @@ func (a *API) ListIssues(w http.ResponseWriter, r *http.Request) error {
 	count, err := a.queries.CountIssuesByProject(ctx, projectID, filters)
 	if err != nil {
 		log.Warn().Err(err).Str("project_id", projectID.String()).Msg("failed to count issues")
+	}
+
+	return sendJSON(w, http.StatusOK, PaginatedResponse{
+		Results:    issues,
+		TotalCount: count,
+	})
+}
+
+// ListBacklogIssues handles GET .../projects/{projectID}/backlog
+func (a *API) ListBacklogIssues(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	projectID := getProjectID(ctx)
+	pg := parsePagination(r)
+
+	issues, err := a.queries.ListBacklogIssues(ctx, projectID, pg.PerPage, pg.Offset())
+	if err != nil {
+		return internalServerError("failed to list backlog issues")
+	}
+
+	count, err := a.queries.CountBacklogIssues(ctx, projectID)
+	if err != nil {
+		log.Warn().Err(err).Str("project_id", projectID.String()).Msg("failed to count backlog issues")
 	}
 
 	return sendJSON(w, http.StatusOK, PaginatedResponse{
@@ -266,12 +289,17 @@ func (a *API) GetIssue(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		log.Warn().Err(err).Str("issue_id", issueID.String()).Msg("failed to list sub-issues")
 	}
+	sprints, err := a.queries.ListSprintsByIssue(r.Context(), issueID)
+	if err != nil {
+		log.Warn().Err(err).Str("issue_id", issueID.String()).Msg("failed to list sprints for issue")
+	}
 
 	type IssueDetail struct {
 		*Issue
 		Assignees []*UserSummary `json:"assignees"`
 		Labels    []*Label       `json:"labels"`
 		SubIssues []*Issue       `json:"sub_issues"`
+		Sprints   []*Sprint      `json:"sprints"`
 	}
 
 	return sendJSON(w, http.StatusOK, IssueDetail{
@@ -279,6 +307,7 @@ func (a *API) GetIssue(w http.ResponseWriter, r *http.Request) error {
 		Assignees: assignees,
 		Labels:    labels,
 		SubIssues: subIssues,
+		Sprints:   sprints,
 	})
 }
 
@@ -328,6 +357,14 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) error {
 		return notFoundError("issue not found")
 	}
 
+	// Resolve parent_id: preserve old value unless explicitly set or cleared
+	updateParentID := req.ParentID
+	if req.ClearParentID {
+		updateParentID = nil
+	} else if updateParentID == nil {
+		updateParentID = oldIssue.ParentID
+	}
+
 	issue, err := a.queries.UpdateIssue(ctx, issueID, UpdateIssueParams{
 		StateID:         req.StateID,
 		Name:            req.Name,
@@ -337,7 +374,7 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) error {
 		IssueType:       req.IssueType,
 		StartDate:       updateStartDate,
 		TargetDate:      updateTargetDate,
-		ParentID:        req.ParentID,
+		ParentID:        updateParentID,
 		SortOrder:       req.SortOrder,
 		EstimatePoint:   req.EstimatePoint,
 		UpdatedBy:       &userID,
